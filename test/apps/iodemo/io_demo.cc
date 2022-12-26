@@ -2254,6 +2254,50 @@ public:
         long total_iter      = 0;
         long total_prev_iter = 0;
 
+
+        const size_t server_size = _server_info.size();
+        size_t       last_size   = 0;
+        bool         wait_all_on = opts().iter_count == 0;
+        while(wait_all_on) {
+            connect_all(true);
+            if (_status != OK) {
+                break;
+            }
+            if (_server_index_lookup.empty()) {
+                if (_connecting_servers.empty()) {
+                    LOG << "All remote servers are down, reconnecting in "
+                        << opts().retry_interval << " seconds";
+                    sleep(opts().retry_interval);
+                    check_time_limit(get_time());
+                } else {
+                    progress();
+                }
+                continue;
+            }
+            VERBOSE_LOG << " <<<< iteration " << total_iter << " >>>>";
+            long conns_window_size = opts().conn_window_size *
+                                     _server_index_lookup.size();
+            long max_outstanding   = std::min(opts().window_size,
+                                              conns_window_size) - 1;
+            progress(_test_opts.progress_count);
+            wait_for_responses(max_outstanding);
+            if (_status != OK) {
+                break;
+            }
+
+            const size_t active_size = _active_servers.size();
+            if (last_size != active_size) {
+                last_size = active_size;
+                LOG << "active " << active_size << "/" << server_size;
+            }
+            wait_all_on = (active_size != server_size);
+        }
+        if (opts().iter_count == 0) {
+            std::cin >> wait_all_on;
+            destroy_servers();
+            return _status;
+        }
+
         while ((total_iter < opts().iter_count) && (_status == OK)) {
             connect_all(is_control_iter(total_iter));
             if (_status != OK) {
@@ -2754,7 +2798,7 @@ static int parse_args(int argc, char **argv, options_t *test_opts)
             break;
         case 'i':
             test_opts->iter_count = strtol(optarg, NULL, 0);
-            if (test_opts->iter_count == 0) {
+            if (test_opts->iter_count < 0) {
                 test_opts->iter_count = std::numeric_limits<long int>::max();
             }
             break;
