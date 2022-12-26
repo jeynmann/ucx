@@ -75,6 +75,7 @@ typedef struct {
     size_t                   max_data_size;
     size_t                   chunk_size;
     long                     iter_count;
+    long                     iter_pause;
     long                     window_size;
     long                     conn_window_size;
     std::vector<io_op_t>     operations;
@@ -2254,7 +2255,12 @@ public:
         long total_iter      = 0;
         long total_prev_iter = 0;
 
-        while ((total_iter < opts().iter_count) && (_status == OK)) {
+        auto server_num = opts().servers.size();
+        auto iter_pause = opts().iter_pause;
+        auto iter_count = opts().iter_count;
+        bool test_io    = iter_count > 0;
+
+        while ((total_iter != iter_count) && (_status == OK)) {
             connect_all(is_control_iter(total_iter));
             if (_status != OK) {
                 break;
@@ -2292,25 +2298,27 @@ public:
                 continue;
             }
 
-            size_t server_index = pick_server_index();
-            io_op_t op          = get_op();
-            switch (op) {
-            case IO_READ:
-                if (opts().use_am) {
-                    do_io_read_am(server_index, sn);
-                } else {
-                    do_io_read(server_index, sn);
+            if (test_io) {
+                size_t server_index = pick_server_index();
+                io_op_t op          = get_op();
+                switch (op) {
+                case IO_READ:
+                    if (opts().use_am) {
+                        do_io_read_am(server_index, sn);
+                    } else {
+                        do_io_read(server_index, sn);
+                    }
+                    break;
+                case IO_WRITE:
+                    if (opts().use_am) {
+                        do_io_write_am(server_index, sn);
+                    } else {
+                        do_io_write(server_index, sn);
+                    }
+                    break;
+                default:
+                    abort();
                 }
-                break;
-            case IO_WRITE:
-                if (opts().use_am) {
-                    do_io_write_am(server_index, sn);
-                } else {
-                    do_io_write(server_index, sn);
-                }
-                break;
-            default:
-                abort();
             }
 
             ++total_iter;
@@ -2333,6 +2341,28 @@ public:
                     prev_time       = curr_time;
 
                     check_time_limit(curr_time);
+                }
+            }
+
+            if (iter_pause != 0 && total_iter % iter_pause == 0 &&
+                _active_servers.size() == server_num) {
+                wait_for_responses(0);
+                if (_status == OK) {
+                    double curr_time = get_time();
+                    report_performance(total_iter - total_prev_iter,
+                                       curr_time - prev_time);
+                }
+                if (iter_pause < 0) {
+                    std::cout.sync_with_stdio();
+                    std::cout << "input iter_pause:" << "\n";
+                    std::cin >> iter_pause;
+                }
+                destroy_servers();
+                if (iter_count < 0) {
+                    std::cout << "current iter:" << total_iter << "\n";
+                    std::cout << "input iter_count:" << "\n";
+                    std::cin >> iter_count;
+                    test_io = iter_count > 0;
                 }
             }
         }
@@ -2701,6 +2731,7 @@ static int parse_args(int argc, char **argv, options_t *test_opts)
     test_opts->num_offcache_buffers  = 0;
     test_opts->iomsg_size            = 256;
     test_opts->iter_count            = 1000;
+    test_opts->iter_pause            = 0;
     test_opts->window_size           = 16;
     test_opts->conn_window_size      = 16;
     test_opts->random_seed           = std::time(NULL) ^ getpid();
@@ -2715,7 +2746,7 @@ static int parse_args(int argc, char **argv, options_t *test_opts)
     test_opts->per_conn_info         = false;
 
     while ((c = getopt(argc, argv,
-                       "p:c:r:d:b:i:w:a:k:o:t:n:l:s:y:vqeADHP:m:L:I:zV")) != -1) {
+                       "p:c:r:d:b:i:j:w:a:k:o:t:n:l:s:y:vqeADHP:m:L:I:zV")) != -1) {
         switch (c) {
         case 'p':
             test_opts->port_num = atoi(optarg);
@@ -2757,6 +2788,9 @@ static int parse_args(int argc, char **argv, options_t *test_opts)
             if (test_opts->iter_count == 0) {
                 test_opts->iter_count = std::numeric_limits<long int>::max();
             }
+            break;
+        case 'j':
+            test_opts->iter_pause = strtol(optarg, NULL, 0);
             break;
         case 'w':
             if (parse_window_size(optarg, test_opts->window_size,
