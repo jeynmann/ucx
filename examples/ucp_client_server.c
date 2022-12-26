@@ -49,6 +49,7 @@
 
 static long test_string_length = 16;
 static long iov_cnt            = 1;
+static long iov_cnt_server     = 1;
 static uint16_t server_port    = DEFAULT_PORT;
 static sa_family_t ai_family   = AF_INET;
 static int num_iterations      = DEFAULT_NUM_ITERATIONS;
@@ -108,13 +109,19 @@ void buffer_free(ucp_dt_iov_t *iov)
     }
 }
 
-int buffer_malloc(ucp_dt_iov_t *iov)
+static inline size_t buffer_length(int is_server) {
+    return is_server ? test_string_length * iov_cnt / iov_cnt_server
+                     : test_string_length;
+}
+
+int buffer_malloc(ucp_dt_iov_t *iov, int is_client)
 {
     size_t idx;
+    size_t buf_length = buffer_length(!is_client);
 
     for (idx = 0; idx < iov_cnt; idx++) {
-        iov[idx].length = test_string_length;
-        iov[idx].buffer = mem_type_malloc(iov[idx].length);
+        iov[idx].length = buf_length;
+        iov[idx].buffer = mem_type_malloc(buf_length);
         if (iov[idx].buffer == NULL) {
             buffer_free(iov);
             return -1;
@@ -282,16 +289,41 @@ static ucs_status_t start_client(ucp_worker_h ucp_worker,
     return status;
 }
 
-static void print_iov(const ucp_dt_iov_t *iov)
+static void print_iov(const ucp_dt_iov_t *iov, int is_server)
 {
-    char *msg = alloca(test_string_length);
-    size_t idx;
+    size_t my_cnt = is_server ? iov_cnt_server :iov_cnt;
+    size_t my_len = buffer_length(is_server);
+    size_t idx, i;
+    char* msg = alloca(my_len);
 
-    for (idx = 0; idx < iov_cnt; idx++) {
-        /* In case of Non-System memory */
-        mem_type_memcpy(msg, iov[idx].buffer, test_string_length);
-        printf("%s.\n", msg);
+    for (idx = 0; idx != my_cnt; ++idx) {
+        mem_type_memcpy(msg, iov[idx].buffer, my_len);
+        for (i = 0; i != my_len; ++i) {
+            printf("%c", msg[i]);
+        }
+        printf(".\n");
     }
+    // char *msg = alloca(buffer_length(0)), *cur;
+    // size_t idx;
+    // size_t my_length = buffer_length(is_server), my_remainder;
+    // size_t my_idx, my_idx_end, sum;
+
+    // sum    = 0;
+    // my_idx = 0;
+    // for (idx = 0; idx < iov_cnt; idx++) {
+    //     cur = msg;
+    //     sum += buffer_length(0);
+    //     my_idx_end = sum / my_length;
+    //     my_remainder = sum % my_length;
+    //     for(; my_idx != my_idx_end; ++my_idx) {
+    //         mem_type_memcpy(cur, iov[my_idx].buffer, my_length);
+    //         cur += my_length;
+    //     }
+    //     if (my_remainder) {
+    //         mem_type_memcpy(cur, iov[my_idx].buffer, my_remainder);
+    //     }
+    //     printf("%s.\n", msg);
+    // }
 }
 
 /**
@@ -310,7 +342,7 @@ void print_result(int is_server, const ucp_dt_iov_t *iov, int current_iter)
         printf("\n\n------------------------------\n\n");
     }
 
-    print_iov(iov);
+    print_iov(iov, is_server);
 
     printf("\n\n------------------------------\n\n");
 }
@@ -373,21 +405,22 @@ fill_request_param(ucp_dt_iov_t *iov, int is_client,
                    void **msg, size_t *msg_length,
                    test_req_t *ctx, ucp_request_param_t *param)
 {
-    CHKERR_ACTION(buffer_malloc(iov) != 0, "allocate memory", return -1;);
+    size_t my_iov_count = is_client ? iov_cnt : iov_cnt_server;
+    CHKERR_ACTION(buffer_malloc(iov, is_client) != 0, "allocate memory", return -1;);
 
     if (is_client && (fill_buffer(iov) != 0)) {
         buffer_free(iov);
         return -1;
     }
 
-    *msg        = (iov_cnt == 1) ? iov[0].buffer : iov;
-    *msg_length = (iov_cnt == 1) ? iov[0].length : iov_cnt;
+    *msg        = (my_iov_count == 1) ? iov[0].buffer : iov;
+    *msg_length = (my_iov_count == 1) ? iov[0].length : my_iov_count;
 
     ctx->complete       = 0;
     param->op_attr_mask = UCP_OP_ATTR_FIELD_CALLBACK |
                           UCP_OP_ATTR_FIELD_DATATYPE |
                           UCP_OP_ATTR_FIELD_USER_DATA;
-    param->datatype     = (iov_cnt == 1) ? ucp_dt_make_contig(1) :
+    param->datatype     = (my_iov_count == 1) ? ucp_dt_make_contig(1) :
                           UCP_DATATYPE_IOV;
     param->user_data    = ctx;
 
@@ -402,14 +435,15 @@ fill_request_param(ucp_dt_iov_t *iov, int is_client,
 static int send_recv_stream(ucp_worker_h ucp_worker, ucp_ep_h ep, int is_server,
                             int current_iter)
 {
-    ucp_dt_iov_t *iov = alloca(iov_cnt * sizeof(ucp_dt_iov_t));
+    size_t my_iov_count = is_server ? iov_cnt_server : iov_cnt;
+    ucp_dt_iov_t *iov = alloca(my_iov_count * sizeof(ucp_dt_iov_t));
     ucp_request_param_t param;
     test_req_t *request;
     size_t msg_length;
     void *msg;
     test_req_t ctx;
 
-    memset(iov, 0, iov_cnt * sizeof(*iov));
+    memset(iov, 0, my_iov_count * sizeof(*iov));
 
     if (fill_request_param(iov, !is_server, &msg, &msg_length,
                            &ctx, &param) != 0) {
@@ -441,14 +475,15 @@ static int send_recv_stream(ucp_worker_h ucp_worker, ucp_ep_h ep, int is_server,
 static int send_recv_tag(ucp_worker_h ucp_worker, ucp_ep_h ep, int is_server,
                          int current_iter)
 {
-    ucp_dt_iov_t *iov = alloca(iov_cnt * sizeof(ucp_dt_iov_t));
+    size_t my_iov_count = is_server ? iov_cnt_server : iov_cnt;
+    ucp_dt_iov_t *iov = alloca(my_iov_count * sizeof(ucp_dt_iov_t));
     ucp_request_param_t param;
     void *request;
     size_t msg_length;
     void *msg;
     test_req_t ctx;
 
-    memset(iov, 0, iov_cnt * sizeof(*iov));
+    memset(iov, 0, my_iov_count * sizeof(*iov));
 
     if (fill_request_param(iov, !is_server, &msg, &msg_length,
                            &ctx, &param) != 0) {
@@ -525,14 +560,15 @@ ucs_status_t ucp_am_data_cb(void *arg, const void *header, size_t header_length,
 static int send_recv_am(ucp_worker_h ucp_worker, ucp_ep_h ep, int is_server,
                         int current_iter)
 {
-    ucp_dt_iov_t *iov = alloca(iov_cnt * sizeof(ucp_dt_iov_t));
+    size_t my_iov_count = is_server ? iov_cnt_server : iov_cnt;
+    ucp_dt_iov_t *iov = alloca(my_iov_count * sizeof(ucp_dt_iov_t));
     test_req_t *request;
     ucp_request_param_t params;
     size_t msg_length;
     void *msg;
     test_req_t ctx;
 
-    memset(iov, 0, iov_cnt * sizeof(*iov));
+    memset(iov, 0, my_iov_count * sizeof(*iov));
 
     if (fill_request_param(iov, !is_server, &msg, &msg_length,
                            &ctx, &params) != 0) {
@@ -663,6 +699,13 @@ static int parse_cmd(int argc, char *const argv[], char **server_addr,
             iov_cnt = atol(optarg);
             if (iov_cnt <= 0) {
                 fprintf(stderr, "Wrong iov count %ld\n", iov_cnt);
+                return UCS_ERR_UNSUPPORTED;
+            }
+            break;
+        case 'u':
+            iov_cnt_server = atol(optarg);
+            if (iov_cnt_server <= 0) {
+                fprintf(stderr, "Wrong iov count %ld\n", iov_cnt_server);
                 return UCS_ERR_UNSUPPORTED;
             }
             break;
