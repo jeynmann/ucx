@@ -547,28 +547,39 @@ void ucp_stream_ep_cleanup(ucp_ep_h ep, ucs_status_t status)
     ucp_request_t *req;
     size_t length;
     void *data;
+    // struct timeval ts;
+    // struct timeval te;
 
     if (!(ep->worker->context->config.features & UCP_FEATURE_STREAM)) {
         return;
     }
 
     /* drop unmatched data */
+    // gettimeofday(&ts, NULL);
     while ((data = ucp_stream_recv_data_nb_nolock(ep, &length)) != NULL) {
         ucs_assert_always(!UCS_PTR_IS_ERR(data));
         ucp_stream_data_release(ep, data);
     }
+    // gettimeofday(&te, NULL);
+    // printf("<ucp_stream_data_release> used %ldus\n", (te.tv_usec - ts.tv_usec));
 
+    // gettimeofday(&ts, NULL);
     if (ucp_stream_ep_is_queued(ep_ext)) {
         ucp_stream_ep_dequeue(ep_ext);
     }
+    // gettimeofday(&te, NULL);
+    // printf("<ucp_stream_ep_dequeue> used %ldus\n", (te.tv_usec - ts.tv_usec));
 
     /* cancel not completed requests */
+    // gettimeofday(&te, NULL);
     ucs_assert(!ucp_stream_ep_has_data(ep_ext));
     while (!ucs_queue_is_empty(&ep_ext->stream.match_q)) {
         req = ucs_queue_head_elem_non_empty(&ep_ext->stream.match_q,
                                             ucp_request_t, recv.queue);
         ucp_request_complete_stream_recv(req, ep_ext, status);
     }
+    // gettimeofday(&te, NULL);
+    // printf("<ucp_request_complete_stream_recv> used %ldus\n", (te.tv_usec - ts.tv_usec));
 }
 
 void ucp_stream_ep_activate(ucp_ep_h ep)

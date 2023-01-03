@@ -565,6 +565,7 @@ uct_rdmacm_cm_handle_event_connect_request(uct_rdmacm_cm_t *cm,
     conn_req_args.client_address = client_saddr;
     ucs_strncpy_safe(conn_req_args.dev_name, dev_name, UCT_DEVICE_NAME_MAX);
 
+    // ucs_warn("server connect request %p", event->id);
     listener->conn_request_cb(&listener->super, listener->user_data,
                               &conn_req_args);
     ucs_free(dev_addr);
@@ -593,6 +594,9 @@ static void uct_rdmacm_cm_handle_event_connect_response(struct rdma_cm_event *ev
     ucs_assert(event->id == cep->id);
     ucs_trace("%s client received connect_response",
               uct_rdmacm_cm_ep_str(cep, ep_str, UCT_RDMACM_EP_STRING_LEN));
+    // ucs_warn("%s client received connect_response %p",
+    //           uct_rdmacm_cm_ep_str(cep, ep_str, UCT_RDMACM_EP_STRING_LEN),
+    //           cep->id);
 
     /* Do not notify user on disconnected EP, RDMACM out of order case */
     if (cep->flags & UCT_RDMACM_CM_EP_GOT_DISCONNECT) {
@@ -627,8 +631,11 @@ static void uct_rdmacm_cm_handle_event_connect_response(struct rdma_cm_event *ev
 static void uct_rdmacm_cm_handle_event_established(struct rdma_cm_event *event)
 {
     uct_rdmacm_cm_ep_t *cep = event->id->context;
+    // char               ep_str[UCT_RDMACM_EP_STRING_LEN];
 
     ucs_assert(event->id == cep->id);
+    // ucs_warn("%s server established",
+    //           uct_rdmacm_cm_ep_str(cep, ep_str, UCT_RDMACM_EP_STRING_LEN));
     /* do not call connect callback again, RDMACM out of order case */
     if (cep->flags & UCT_RDMACM_CM_EP_GOT_DISCONNECT) {
         return;
