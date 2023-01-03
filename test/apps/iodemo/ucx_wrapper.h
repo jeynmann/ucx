@@ -82,7 +82,7 @@ public:
     }
 
 private:
-    std::stringstream        *_ss;
+    std::stringstream        *_ss{NULL};
     std::ostream             *_os;
     bool                     _abort;
 };

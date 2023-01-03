@@ -55,7 +55,6 @@ UcxLog::UcxLog(const char* prefix, bool enable, std::ostream *os, bool abort) :
         _os(os), _abort(abort)
 {
     if (!enable) {
-        _ss = NULL;
         return;
     }
 
@@ -238,7 +237,7 @@ void UcxContext::progress(unsigned count)
     struct timeval ts;
     struct timeval te;
     long tusec[6];
-    long openlog = (state == State::closing);
+    bool openlog = false;//state == State::closing || state == State::connecting;
 
     gettimeofday(&ts, NULL);
     progress_worker_event();
@@ -516,11 +515,11 @@ void UcxContext::progress_failed_connections()
 void UcxContext::progress_disconnected_connections()
 {
     std::list<UcxConnection *>::iterator it = _disconnecting_conns.begin();
-    struct timeval ts;
-    struct timeval te;
+    // struct timeval ts;
+    // struct timeval te;
     while (it != _disconnecting_conns.end()) {
         UcxConnection *conn = *it;
-        gettimeofday(&ts, NULL);
+        // gettimeofday(&ts, NULL);
         if (conn->disconnect_progress()) {
             it = _disconnecting_conns.erase(it);
             delete conn;
@@ -528,12 +527,12 @@ void UcxContext::progress_disconnected_connections()
                 state = UcxContext::State::closed;
                 timer::SystemTap::global().end_stap();
             }
-            gettimeofday(&te, NULL);
-            printf("<disconnect_progress> %ldus\n", te.tv_usec - ts.tv_usec);
+            // gettimeofday(&te, NULL);
+            // printf("<disconnect_progress> %ldus\n", te.tv_usec - ts.tv_usec);
         } else {
             ++it;
-            gettimeofday(&te, NULL);
-            printf("<disconnect_progress> %ldus\n", te.tv_usec - ts.tv_usec);
+            // gettimeofday(&te, NULL);
+            // printf("<disconnect_progress> %ldus\n", te.tv_usec - ts.tv_usec);
         }
     }
 }
@@ -902,25 +901,25 @@ void UcxConnection::accept(ucp_conn_request_h conn_req, UcxCallback *callback)
 
 void UcxConnection::disconnect(UcxCallback *callback)
 {
-    struct timeval ts;
-    struct timeval te;
+    // struct timeval ts;
+    // struct timeval te;
 
     UCX_CONN_LOG << "disconnect, ep is " << _ep;
 
     assert(_disconnect_cb == NULL);
     _disconnect_cb = callback;
 
-    gettimeofday(&ts, NULL);
+    // gettimeofday(&ts, NULL);
     _context.remove_connection(this);
-    gettimeofday(&te, NULL);
-    printf("<remove_connection> %ldus\n", te.tv_usec - ts.tv_usec);
+    // gettimeofday(&te, NULL);
+    // printf("<remove_connection> %ldus\n", te.tv_usec - ts.tv_usec);
 
     if (!is_established()) {
-        gettimeofday(&ts, NULL);
+        // gettimeofday(&ts, NULL);
         assert(_ucx_status == UCS_INPROGRESS);
         established(UCS_ERR_CANCELED);
-        gettimeofday(&te, NULL);
-        printf("<established> %ldus\n", te.tv_usec - ts.tv_usec);
+        // gettimeofday(&te, NULL);
+        // printf("<established> %ldus\n", te.tv_usec - ts.tv_usec);
     } else if (_ucx_status == UCS_OK) {
         _ucx_status = UCS_ERR_NOT_CONNECTED;
     }
@@ -936,10 +935,10 @@ void UcxConnection::disconnect(UcxCallback *callback)
 
     // close the EP after cancelling all outstanding operations to purge all
     // requests scheduled on the EP which could wait for the acknowledgments
-    gettimeofday(&ts, NULL);
+    // gettimeofday(&ts, NULL);
     ep_close(UCP_EP_CLOSE_MODE_FORCE);
-    gettimeofday(&te, NULL);
-    printf("<ep_close> %ldus\n", te.tv_usec - ts.tv_usec);
+    // gettimeofday(&te, NULL);
+    // printf("<ep_close> %ldus\n", te.tv_usec - ts.tv_usec);
 }
 
 bool UcxConnection::disconnect_progress()
@@ -1282,6 +1281,10 @@ void UcxConnection::established(ucs_status_t status)
 
     _context.remove_connection_inprogress(this);
     invoke_callback(_establish_cb, status);
+    if (_context.connecting && --_context.connecting == 0) {
+        _context.state = UcxContext::State::connected;
+        timer::SystemTap::global().end_stap();
+    }
 
     if (status == UCS_OK) {
         while (!_iomsg_recv_backlog.empty()) {
@@ -1352,6 +1355,10 @@ void UcxConnection::handle_connection_error(ucs_status_t status)
     } else {
         _context.remove_connection_inprogress(this);
         invoke_callback(_establish_cb, status);
+        if (_context.connecting && --_context.connecting == 0) {
+            _context.state = UcxContext::State::connected;
+            timer::SystemTap::global().end_stap();
+        }
     }
 }
 

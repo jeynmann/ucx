@@ -38,7 +38,7 @@
 #define MAX_SERVER_REPEAT_COUNT (65536U - 1024U)
 #define UCX_LOG UcxLog("[UCX]", true)
 
-static timer::Collector _ccall_coll{"connect-callback"};
+// static timer::Collector _ccon_coll{"connect-callback"};
 static timer::Collector _dcon_coll{"disconnect"};
 
 /* IO operation type */
@@ -80,6 +80,7 @@ typedef struct {
     size_t                   min_data_size;
     size_t                   max_data_size;
     size_t                   chunk_size;
+    long                     iter_disconnect;
     long                     iter_count;
     long                     window_size;
     long                     conn_window_size;
@@ -1530,9 +1531,6 @@ public:
             } else {
                 _client.connect_failed(_server_idx, status);
             }
-            if (_client.connecting && --_client.connecting == 0) {
-                _ccall_coll[0]();
-            }
             delete this;
         }
 
@@ -2011,8 +2009,8 @@ public:
              * operations */
             if (++closing == 1) {
                 printf(">>into <disconnect>\n");
-                timer::SystemTap::global().beg_stap();
                 state = State::closing;
+                timer::SystemTap::global().beg_stap();
             }
             _dcon_coll[server_index]();
             server_info.conn->disconnect(new DisconnectCallback(*this,
@@ -2124,11 +2122,13 @@ public:
             abort();
         }
 
-        if (++connecting == 1) {
-            _ccall_coll[0]();
-        }
         UcxConnection *conn = new UcxConnection(*this, opts().use_am);
         _server_info[server_index].conn = conn;
+        if (++connecting == 1) {
+            printf(">>into <connect>\n");
+            state = UcxContext::State::connecting;
+            timer::SystemTap::global().beg_stap();
+        }
         conn->connect((const struct sockaddr*)src_addr_p,
                       (const struct sockaddr*)&dst_addr,
                       sizeof(dst_addr),
@@ -2189,7 +2189,6 @@ public:
         }
 
         double curr_time = get_time();
-        _ccall_coll.resize(1);
         _dcon_coll.resize(_server_info.size());
         for (size_t server_index = 0; server_index < _server_info.size();
              ++server_index) {
@@ -2269,112 +2268,51 @@ public:
         _num_sent      = 0;
         _num_completed = 0;
 
-        size_t   gi          = 0;
         uint32_t sn          = IoDemoRandom::rand<uint32_t>();
         double prev_time     = get_time();
         long total_iter      = 0;
         long total_prev_iter = 0;
 
-        timer::CTimer ctimer;
-        auto print_time = [&] (const char* fname) {
-            if(state == State::closing) {
-                printf("<%s> %ldus\n", fname, (uint64_t)ctimer);
-            }
-        };
+        // timer::CTimer ctimer;
+        // auto print_time = [&] (const char* fname) {
+        //     if(state == State::closing) {
+        //         printf("<%s> %ldus\n", fname, (uint64_t)ctimer);
+        //     }
+        // };
 
-
+        // just establish connection. no read/write
         const size_t server_size = _server_info.size();
-        size_t       last_size   = 0;
-        time_t       last_time   = time(0);
-        bool         wait_all_on = opts().iter_count == 0;
-        while(wait_all_on) {
-            const time_t now_time = time(0);
-            if (last_time == now_time) {
-                state = State::closed;
-            } else {
-                last_time = now_time;
-                state = State::closing;
-            }
-            ctimer();
-            connect_all(true);
-            ctimer();
-            print_time("connect_all");
-            // if (_status != OK) {
-            //     break;
-            // }
-            if (_server_index_lookup.empty()) {
-                if (_connecting_servers.empty()) {
-                    ctimer();
-                    LOG << "All remote servers are down, reconnecting in "
-                        << opts().retry_interval << " seconds";
-                    sleep(opts().retry_interval);
-                    check_time_limit(get_time());
-                    ctimer();
-                    print_time("sleep");
-                } else {
-                    ctimer();
-                    progress();
-                    ctimer();
-                    print_time("progress");
-                }
-                continue;
-            }
-            VERBOSE_LOG << " <<<< iteration " << total_iter << " >>>>";
-            long conns_window_size = opts().conn_window_size *
-                                     _server_index_lookup.size();
-            long max_outstanding   = std::min(opts().window_size,
-                                              conns_window_size) - 1;
-            ctimer();
-            progress(_test_opts.progress_count);
-            ctimer();
-            print_time("progress(size_t)");
-            ctimer();
-            wait_for_responses(max_outstanding);
-            ctimer();
-            print_time("wait_for_responses");
-            // if (_status != OK) {
-            //     break;
-            // }
+        long          iter_count = opts().iter_count;
+        long     iter_disconnect = opts().iter_disconnect;
+        bool     test_read_write = iter_count != 0;
 
-            const size_t active_size = _active_servers.size();
-            if (last_size != active_size) {
-                last_size = active_size;
-                printf("[%lu]<run> active %lu/%lu\n", time(0), active_size, server_size);
-            }
-            wait_all_on = (active_size != server_size);
-        }
-        if (last_size == server_size) {
-            std::cin >> wait_all_on;
-            destroy_servers();
-            return _status;
+        if (!test_read_write) {
+            iter_count = std::numeric_limits<long int>::max();
         }
 
-        while ((total_iter < opts().iter_count) && (_status == OK)) {
-            if(state == State::closing) {
-                printf("<run> id %lu\n", ++gi);
-            }
-            ctimer();
+        while ((total_iter < iter_count) && (_status == OK)) {
+            // ctimer();
             connect_all(is_control_iter(total_iter));
-            ctimer();
-            print_time("connect_all");
+            // ctimer();
+            // print_time("connect_all");
             if (_status != OK) {
                 break;
             }
 
             if (_server_index_lookup.empty()) {
                 if (_connecting_servers.empty()) {
-                    ctimer();
+                    // ctimer();
                     LOG << "All remote servers are down, reconnecting in "
                         << opts().retry_interval << " seconds";
                     sleep(opts().retry_interval);
                     check_time_limit(get_time());
-                    ctimer();
-                    print_time("sleep");
+                    // ctimer();
+                    // print_time("sleep");
                 } else {
-                    ctimer();
+                    // ctimer();
                     progress();
-                    ctimer();
-                    print_time("progress");
+                    // ctimer();
+                    // print_time("progress");
                 }
                 continue;
             }
@@ -2385,14 +2323,14 @@ public:
             long max_outstanding   = std::min(opts().window_size,
                                               conns_window_size) - 1;
 
-            ctimer();
+            // ctimer();
             progress(_test_opts.progress_count);
-            ctimer();
-            print_time("progress(size_t)");
-            ctimer();
+            // ctimer();
+            // print_time("progress(size_t)");
+            // ctimer();
             wait_for_responses(max_outstanding);
-            ctimer();
-            print_time("wait_for_responses");
+            // ctimer();
+            // print_time("wait_for_responses");
             if (_status != OK) {
                 break;
             }
@@ -2405,30 +2343,31 @@ public:
                 continue;
             }
 
-            ctimer();
-            size_t server_index = pick_server_index();
-            io_op_t op          = get_op();
-            switch (op) {
-            case IO_READ:
-                if (opts().use_am) {
-                    do_io_read_am(server_index, sn);
-                } else {
-                    do_io_read(server_index, sn);
+            if (test_read_write) {
+                // ctimer();
+                size_t server_index = pick_server_index();
+                io_op_t op          = get_op();
+                switch (op) {
+                case IO_READ:
+                    if (opts().use_am) {
+                        do_io_read_am(server_index, sn);
+                    } else {
+                        do_io_read(server_index, sn);
+                    }
+                    break;
+                case IO_WRITE:
+                    if (opts().use_am) {
+                        do_io_write_am(server_index, sn);
+                    } else {
+                        do_io_write(server_index, sn);
+                    }
+                    break;
+                default:
+                    abort();
                 }
-                break;
-            case IO_WRITE:
-                if (opts().use_am) {
-                    do_io_write_am(server_index, sn);
-                } else {
-                    do_io_write(server_index, sn);
-                }
-                break;
-            default:
-                abort();
+                // ctimer();
+                // print_time("io_read/write");
             }
-            ctimer();
-            print_time("io_read/write");
-
             ++total_iter;
             ++sn;
 
@@ -2436,7 +2375,7 @@ public:
                 ((total_iter - total_prev_iter) >= _server_index_lookup.size())) {
                 // Print performance every <print_interval> seconds
                 if (get_time() >= (prev_time + opts().print_interval)) {
-                    ctimer();
+                    // ctimer();
                     wait_for_responses(0);
                     if (_status != OK) {
                         break;
@@ -2450,8 +2389,26 @@ public:
                     prev_time       = curr_time;
 
                     check_time_limit(curr_time);
-                    ctimer();
-                    print_time("report_performance");
+                    // ctimer();
+                    // print_time("report_performance");
+                }
+            }
+            const size_t active_size = _active_servers.size();
+            if (iter_disconnect != 0 && total_iter % iter_disconnect == 0 &&
+                active_size == server_size) {
+                wait_for_responses(0);
+                if (_status == OK) {
+                    double curr_time = get_time();
+                    report_performance(total_iter - total_prev_iter,
+                                       curr_time - prev_time);
+                }
+                LOG << "start disconnect all";
+                if (iter_disconnect < 0) {
+                    std::cin >> iter_disconnect; // allow change or disable
+                }
+                destroy_servers();
+                if (iter_count) {
+                    std::cin >> iter_count;
                 }
             }
         }
@@ -2897,6 +2854,7 @@ static void init_opts(options_t *test_opts)
     test_opts->chunk_size            = std::numeric_limits<unsigned>::max();
     test_opts->num_offcache_buffers  = 0;
     test_opts->iomsg_size            = 256;
+    test_opts->iter_disconnect       = 0;
     test_opts->iter_count            = 1000;
     test_opts->window_size           = 16;
     test_opts->conn_window_size      = 16;
@@ -2913,10 +2871,11 @@ static void init_opts(options_t *test_opts)
     test_opts->per_conn_info         = false;
 }
 
+<<<<<<< HEAD
 static int parse_args(int argc, char **argv, options_t *test_opts)
 {
     static const char *optstring =
-            "p:c:r:d:b:i:w:a:k:o:t:n:l:s:y:vqeADC:HP:m:L:I:zV";
+            "p:c:r:d:b:i:j:w:a:k:o:t:n:l:s:y:vqeADC:HP:m:L:I:zV";
     char *str;
     bool found;
     int c;
@@ -2963,6 +2922,9 @@ static int parse_args(int argc, char **argv, options_t *test_opts)
             if (test_opts->iter_count < 0) {
                 test_opts->iter_count = std::numeric_limits<long int>::max();
             }
+            break;
+        case 'j':
+            test_opts->iter_disconnect = strtol(optarg, NULL, 0);
             break;
         case 'w':
             if (parse_window_size(optarg, test_opts->window_size,
@@ -3134,7 +3096,6 @@ static int do_client(options_t& test_opts)
 
     DemoClient::status_t status = client.run();
     LOG << "Client exit with status '" << DemoClient::get_status_str(status) << "'";
-    LOG << _ccall_coll.to_string() << "\n";
     LOG << _dcon_coll.to_string() << "\n";
     // struct timespec tts;
     // struct timespec tte;
