@@ -90,6 +90,7 @@ typedef struct {
     std::vector<const char*> src_addrs;
     bool                     prereg;
     bool                     per_conn_info;
+    size_t                   server_multiple;
 } options_t;
 
 #define LOG_PREFIX  "[DEMO]"
@@ -2713,9 +2714,10 @@ static int parse_args(int argc, char **argv, options_t *test_opts)
     test_opts->progress_count        = 1;
     test_opts->prereg                = false;
     test_opts->per_conn_info         = false;
+    test_opts->server_multiple       = 1;
 
     while ((c = getopt(argc, argv,
-                       "p:c:r:d:b:i:w:a:k:o:t:n:l:s:y:vqeADHP:m:L:I:zV")) != -1) {
+                       "p:c:r:d:b:i:w:a:k:o:t:n:l:s:y:x:vqeADHP:m:L:I:zV")) != -1) {
         switch (c) {
         case 'p':
             test_opts->port_num = atoi(optarg);
@@ -2869,6 +2871,9 @@ static int parse_args(int argc, char **argv, options_t *test_opts)
         case 'V':
             test_opts->per_conn_info = true;
             break;
+        case 'x':
+            test_opts->server_multiple = strtoul(optarg, NULL, 0);
+            break;
         case 'h':
         default:
             std::cout << "Usage: io_demo [options] [server_address]" << std::endl;
@@ -2918,6 +2923,15 @@ static int parse_args(int argc, char **argv, options_t *test_opts)
 
     while (optind < argc) {
         test_opts->servers.push_back(argv[optind++]);
+    }
+
+    const size_t server_multiple = test_opts->server_multiple;
+    const size_t server_size = test_opts->servers.size();
+    test_opts->servers.reserve(server_size * server_multiple);
+    for (size_t i = 1; i < server_multiple; ++i) {
+        for (size_t j = 0; j != server_size; ++j) {
+            test_opts->servers.emplace_back(test_opts->servers[j]);
+        }
     }
 
     adjust_opts(test_opts);
