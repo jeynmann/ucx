@@ -86,6 +86,21 @@ const char *ucs_profile_mode_names[] = {
  */
 ucs_profile_context_t *ucs_profile_default_ctx;
 
+static int __s_g_profile_count;
+
+int ucs_profile_is_on() {
+    int t = __atomic_load_n(&__s_g_profile_count, __ATOMIC_ACQUIRE);
+    return t > 0;
+}
+
+void ucs_profile_on() {
+    __atomic_add_fetch(&__s_g_profile_count, 1, __ATOMIC_RELAXED);
+}
+
+void ucs_profile_off() {
+    __atomic_sub_fetch(&__s_g_profile_count, 1, __ATOMIC_RELEASE);
+}
+
 static ucs_status_t ucs_profile_file_write_data(int fd, void *data, size_t size)
 {
     ssize_t written;

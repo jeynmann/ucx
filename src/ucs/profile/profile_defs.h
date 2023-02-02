@@ -154,6 +154,11 @@ void ucs_profile_cleanup(ucs_profile_context_t *ctx);
 void ucs_profile_dump(ucs_profile_context_t *ctx);
 
 
+int ucs_profile_is_on();
+void ucs_profile_on();
+void ucs_profile_off();
+
+
 /*
  * Store a new record with the given data.
  * SHOULD NOT be used directly - use UCS_PROFILE macros instead.
@@ -271,12 +276,12 @@ void ucs_profile_record(ucs_profile_context_t *ctx, ucs_profile_type_t type,
  * @param ...     Function call arguments.
  */
 #define UCS_PROFILE_CTX_NAMED_CALL_ALWAYS(_ctx, _name, _func, ...) \
-    ({ \
+    (ucs_profile_is_on() ? ({ \
         ucs_typeof(_func(__VA_ARGS__)) retval; \
         \
         UCS_PROFILE_CTX_CODE_ALWAYS(_ctx, _name, retval = _func(__VA_ARGS__)); \
         retval; \
-    })
+    }) : _func(__VA_ARGS__))
 
 
 /**
