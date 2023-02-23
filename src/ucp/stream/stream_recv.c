@@ -270,9 +270,13 @@ ucp_stream_recv_nb_is_inplace(ucp_ep_ext_t *ep_ext, size_t dt_length)
            (ucp_stream_rdesc_get(ep_ext)->length >= dt_length);
 }
 
-UCS_PROFILE_FUNC(ucs_status_ptr_t, ucp_stream_recv_nb,
-                 (ep, buffer, count, datatype, cb, length, flags),
-                 ucp_ep_h ep, void *buffer, size_t count,
+// UCS_PROFILE_FUNC(ucs_status_ptr_t, ucp_stream_recv_nb,
+//                  (ep, buffer, count, datatype, cb, length, flags),
+//                  ucp_ep_h ep, void *buffer, size_t count,
+//                  ucp_datatype_t datatype, ucp_stream_recv_callback_t cb,
+//                  size_t *length, unsigned flags)
+ucs_status_ptr_t ucp_stream_recv_nb
+                 (ucp_ep_h ep, void *buffer, size_t count,
                  ucp_datatype_t datatype, ucp_stream_recv_callback_t cb,
                  size_t *length, unsigned flags)
 {
@@ -292,6 +296,8 @@ UCS_PROFILE_FUNC(ucs_status_ptr_t, ucp_stream_recv_nbx,
                  (ep, buffer, count, length, param),
                  ucp_ep_h ep, void *buffer, size_t count, size_t *length,
                  const ucp_request_param_t *param)
+// ucs_status_ptr_t  ucp_stream_recv_nbx(ucp_ep_h ep, void *buffer, size_t count, size_t *length,
+//                  const ucp_request_param_t *param)
 {
     ucs_status_t status  = UCS_OK;
     ucp_ep_ext_t *ep_ext = ep->ext;
@@ -520,9 +526,12 @@ void ucp_stream_ep_activate(ucp_ep_h ep)
     }
 }
 
-static UCS_F_ALWAYS_INLINE ucs_status_t
-ucp_stream_am_handler(void *am_arg, void *am_data, size_t am_length,
+UCS_PROFILE_FUNC(ucs_status_t, ucp_stream_am_handler,
+(am_arg, am_data, am_length, am_flags), void *am_arg, void *am_data, size_t am_length,
                       unsigned am_flags)
+// static UCS_F_ALWAYS_INLINE ucs_status_t
+// ucp_stream_am_handler(void *am_arg, void *am_data, size_t am_length,
+//                       unsigned am_flags)
 {
     ucp_worker_h          worker    = am_arg;
     ucp_stream_am_data_t *data      = am_data;

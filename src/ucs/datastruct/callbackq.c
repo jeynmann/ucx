@@ -606,3 +606,93 @@ void ucs_callbackq_remove_if(ucs_callbackq_t *cbq, ucs_callbackq_predicate_t pre
 
     ucs_callbackq_leave(cbq);
 }
+
+#define __S_FN_N 5
+static long __s_fn_nil;
+static long __s_fn_id;
+static long __s_cb_id;
+static long __s_fn_td[__S_FN_N];
+
+void ucs_callbackq_remove_if2(ucs_callbackq_t *cbq, ucs_callbackq_predicate_t pred,
+                             void *arg)
+{
+    ucs_callbackq_priv_t *priv = ucs_callbackq_priv(cbq);
+    ucs_callbackq_elem_t *elem;
+    unsigned idx;
+
+    struct timeval tb[__S_FN_N];
+    struct timeval te[__S_FN_N];
+    long i, j = 0, jj = 0, k = 0, kk =0, p;
+
+    ucs_callbackq_enter(cbq);
+
+    ucs_trace_func("cbq=%p", cbq);
+
+    ucs_callbackq_purge_fast(cbq);
+
+    gettimeofday(&tb[1], NULL);
+    /* Mark matched fast-path elements to be removed  */
+    for (elem = cbq->fast_elems; elem->cb != NULL; ++elem) {
+        gettimeofday(&tb[2], NULL);
+        p = pred(elem, arg);
+        gettimeofday(&te[2], NULL);
+        if (p) {
+            ucs_callbackq_remove_safe(cbq, elem->id);
+            ++j;
+        }
+        ++jj;
+        __s_fn_td[2] += (te[2].tv_usec- tb[2].tv_usec);
+        __s_fn_td[2] += (te[2].tv_sec- tb[2].tv_sec) * 1000000;
+    }
+    gettimeofday(&te[1], NULL);
+
+    /* Purge fast-path elements marked for removal.
+     * Elements are collected and then removed to suppress Coverity warning
+     * about using the element's argument after freeing it, Coverity wrongly
+     * assumes that reusing the same element for the next element could be
+     * harmful */
+    ucs_callbackq_purge_fast(cbq);
+
+    gettimeofday(&tb[3], NULL);
+    /* Remove slow-path elements */ 
+    for (elem = priv->slow_elems;
+         elem < (priv->slow_elems + priv->num_slow_elems); ++elem) {
+        gettimeofday(&tb[4], NULL);
+        p = pred(elem, arg);
+        gettimeofday(&te[4], NULL);
+        if (p) {
+            idx = ucs_callbackq_put_id_noflag(cbq, elem->id);
+            ucs_assert(idx == (elem - priv->slow_elems));
+            ucs_callbackq_remove_slow(cbq, idx);
+            ++k;
+        }
+        ++kk;
+        __s_fn_nil += elem->cb == NULL;
+        __s_fn_td[4] += (te[4].tv_usec- tb[4].tv_usec);
+        __s_fn_td[4] += (te[4].tv_sec- tb[4].tv_sec) * 1000000;
+    }
+    gettimeofday(&te[3], NULL);
+
+    ucs_callbackq_leave(cbq);
+
+    for (i = 0; i != 5; ++i) {
+        __s_fn_td[i] += (te[i].tv_usec- tb[i].tv_usec);
+        __s_fn_td[i] += (te[i].tv_sec- tb[i].tv_sec) * 1000000;
+    }
+    __s_cb_id += kk + jj;
+    ++__s_fn_id;
+    if (__s_fn_id != 1 && __s_fn_id != 3 && __s_fn_id != 30 &&
+        __s_fn_id != 300 &&  __s_fn_id != 3000) return;
+    // for (elem = cbq->fast_elems; elem->cb != NULL; ++elem) {
+    //     printf("<%s>", ucs_debug_get_symbol_name(elem->cb));
+    // }
+    // for (elem = priv->slow_elems;
+    //      elem < (priv->slow_elems + priv->num_slow_elems); ++elem) {
+    //     printf("<%s>", elem->cb? ucs_debug_get_symbol_name(elem->cb): "nil");
+    // }
+    printf(" pred: %ld/%ld \n", __s_fn_td[1], __s_fn_id * jj);
+    printf(" fast: %ld/%ld err: %ld/%ld \n", __s_fn_td[2], __s_fn_id, j, jj);
+    printf(" pred: %ld/%ld \n", __s_fn_td[3], __s_fn_id * kk);
+    printf(" slow: %ld/%ld err: %ld/%ld \n", __s_fn_td[4], __s_fn_id, k, kk);
+    printf(" nil: %ld/%ld \n", __s_fn_nil, __s_cb_id);
+}

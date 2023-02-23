@@ -13,6 +13,10 @@
 #include <uct/ib/mlx5/ib_mlx5_log.h>
 #include <ucs/time/time.h>
 
+// #define UCS_PROFILE_0
+/** uct_dc_mlx5_ep_t */
+#include <ucs/profile/profile_mod.h>
+
 
 static UCS_F_ALWAYS_INLINE void
 uct_dc_mlx5_add_flush_remote(uct_dc_mlx5_ep_t *ep)
@@ -1312,7 +1316,8 @@ UCS_CLASS_DEFINE(uct_dc_mlx5_ep_t, uct_base_ep_t);
 UCS_CLASS_DEFINE_NEW_FUNC(uct_dc_mlx5_ep_t, uct_ep_t, uct_dc_mlx5_iface_t *,
                           const uct_dc_mlx5_iface_addr_t *,
                           uct_ib_mlx5_base_av_t *, uint8_t);
-UCS_CLASS_DEFINE_DELETE_FUNC(uct_dc_mlx5_ep_t, uct_ep_t);
+// UCS_CLASS_DEFINE_DELETE_FUNC(uct_dc_mlx5_ep_t, uct_ep_t);
+UCS_PROFILE_CLASS_DEFINE_DELETE_FUNC(uct_dc_mlx5_ep_t, uct_ep_t);
 
 UCS_CLASS_INIT_FUNC(uct_dc_mlx5_grh_ep_t, uct_dc_mlx5_iface_t *iface,
                     const uct_dc_mlx5_iface_addr_t *if_addr,

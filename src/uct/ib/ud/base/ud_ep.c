@@ -18,6 +18,7 @@
 #include <ucs/debug/memtrack_int.h>
 #include <ucs/debug/log.h>
 #include <ucs/time/time.h>
+#include <ucs/profile/profile.h>
 #include <ucs/vfs/base/vfs_cb.h>
 #include <ucs/vfs/base/vfs_obj.h>
 
@@ -1778,6 +1779,7 @@ void uct_ud_ep_pending_purge(uct_ep_h ep_h, uct_pending_purge_callback_t cb,
     uct_ud_leave(iface);
 }
 
+// UCS_PROFILE_FUNC_VOID(uct_ud_ep_disconnect, (tl_ep), uct_ep_h tl_ep)
 void uct_ud_ep_disconnect(uct_ep_h tl_ep)
 {
     uct_ud_ep_t    *ep    = ucs_derived_of(tl_ep, uct_ud_ep_t);

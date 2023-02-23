@@ -24,6 +24,11 @@
 #include <ucs/debug/log.h>
 #include <string.h>
 
+#define UCS_PROFILE_0
+/** mlx5dv_create_qp */
+// #define UCS_PROFILE_1
+/** uct_dc_mlx5_iface_progress_ll */
+#include <ucs/profile/profile_mod.h>
 
 #define UCT_DC_MLX5_MAX_TX_CQ_LEN (16 * UCS_MBYTE)
 
@@ -305,7 +310,7 @@ static unsigned uct_dc_mlx5_iface_progress_cyclic(void *arg)
 
 static unsigned uct_dc_mlx5_iface_progress_ll(void *arg)
 {
-    return uct_dc_mlx5_iface_progress(arg, UCT_IB_MLX5_POLL_FLAG_LINKED_LIST);
+    return UCS_PROFILE_1_CALL(uct_dc_mlx5_iface_progress, arg, UCT_IB_MLX5_POLL_FLAG_LINKED_LIST);
 }
 
 static unsigned uct_dc_mlx5_iface_progress_ll_zip(void *arg)

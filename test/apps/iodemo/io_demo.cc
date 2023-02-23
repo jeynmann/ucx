@@ -75,6 +75,7 @@ typedef struct {
     size_t                   max_data_size;
     size_t                   chunk_size;
     long                     iter_count;
+    long                     iter_pause;
     long                     window_size;
     long                     conn_window_size;
     std::vector<io_op_t>     operations;
@@ -90,6 +91,7 @@ typedef struct {
     std::vector<const char*> src_addrs;
     bool                     prereg;
     bool                     per_conn_info;
+    size_t                   server_multiple;
 } options_t;
 
 #define LOG_PREFIX  "[DEMO]"
@@ -1762,6 +1764,7 @@ public:
 
         if (!send_io_message(server_info.conn, IO_WRITE, sn, data_size,
                              validate)) {
+            printf("<zizhao> !send_io_message server: %lu\n", server_index);
             return 0;
         }
 
@@ -2215,8 +2218,61 @@ public:
         return (iter % 10) == 0;
     }
 
-    void destroy_servers()
+    void connect_servers(long total_iter, size_t server_num, bool prof)
     {
+        if (prof) {
+            ucs_profile_on();
+        }
+        UCS_PROFILE_CODE(__FUNCTION__, {
+        while(_server_index_lookup.size() < server_num) {
+            UCS_PROFILE_CODE("connect_all", {
+            connect_all(is_control_iter(total_iter));
+            })
+            if (_status != OK) {
+                break;
+            }
+
+            if (_server_index_lookup.empty()) {
+                if (_connecting_servers.empty()) {
+                    LOG << "All remote servers are down, reconnecting in "
+                        << opts().retry_interval << " seconds";
+                    sleep(opts().retry_interval);
+                    check_time_limit(get_time());
+                } else {
+            // UCS_PROFILE_CODE("progress1", {
+                    // progress();
+                    progress(_test_opts.progress_count); // -30ms
+            // })
+                }
+                continue;
+            }
+
+            VERBOSE_LOG << " <<<< iteration " << total_iter << " >>>>";
+            long conns_window_size = opts().conn_window_size *
+                                     _server_index_lookup.size();
+            long max_outstanding   = std::min(opts().window_size,
+                                              conns_window_size) - 1;
+
+            // UCS_PROFILE_CODE("progress2", {
+            progress(_test_opts.progress_count);
+            // })
+            wait_for_responses(max_outstanding);
+            if (_status != OK) {
+                break;
+            }
+        }
+        });
+        if (prof) {
+            ucs_profile_off();
+        }
+    }
+
+    void destroy_servers(bool prof)
+    {
+        if (prof) {
+            ucs_profile_on();
+        }
+        UCS_PROFILE_CODE(__FUNCTION__, {
         for (size_t server_index = 0; server_index < _server_info.size();
              ++server_index) {
             server_info_t& server_info = _server_info[server_index];
@@ -2224,18 +2280,28 @@ public:
                 continue;
             }
 
+        // UCS_PROFILE_CODE("disconnect_server", {
             disconnect_server(server_index, "End of the Client run");
+        // })
         }
 
         if (!_server_index_lookup.empty()) {
             LOG << "waiting for " << _server_index_lookup.size()
                 << " disconnects to complete";
             do {
+        // UCS_PROFILE_CODE("progress", {
                 progress();
+        // })
             } while (!_server_index_lookup.empty());
         }
 
+        // UCS_PROFILE_CODE("wait_disconnected_connections", {
         wait_disconnected_connections();
+        // })
+        });
+        if (prof) {
+            ucs_profile_off();
+        }
     }
 
     status_t run() {
@@ -2254,63 +2320,42 @@ public:
         long total_iter      = 0;
         long total_prev_iter = 0;
 
-        while ((total_iter < opts().iter_count) && (_status == OK)) {
-            connect_all(is_control_iter(total_iter));
+        auto server_num = opts().servers.size();
+        auto iter_pause = opts().iter_pause;
+        auto iter_count = opts().iter_count;
+        bool test_io    = iter_count > 0;
+
+        const long iter_const = 0;
+        const long *iter_ptr  = test_io ? &total_iter : &iter_const;
+        const auto target_num = test_io ? 1 : server_num;
+
+        while ((total_iter != iter_count) && (_status == OK)) {
+            connect_servers(*iter_ptr, target_num, iter_pause < 0);
             if (_status != OK) {
                 break;
             }
 
-            if (_server_index_lookup.empty()) {
-                if (_connecting_servers.empty()) {
-                    LOG << "All remote servers are down, reconnecting in "
-                        << opts().retry_interval << " seconds";
-                    sleep(opts().retry_interval);
-                    check_time_limit(get_time());
-                } else {
-                    progress();
+            if (test_io) {
+                size_t server_index = pick_server_index();
+                io_op_t op          = get_op();
+                switch (op) {
+                case IO_READ:
+                    if (opts().use_am) {
+                        do_io_read_am(server_index, sn);
+                    } else {
+                        do_io_read(server_index, sn);
+                    }
+                    break;
+                case IO_WRITE:
+                    if (opts().use_am) {
+                        do_io_write_am(server_index, sn);
+                    } else {
+                        do_io_write(server_index, sn);
+                    }
+                    break;
+                default:
+                    abort();
                 }
-                continue;
-            }
-
-            VERBOSE_LOG << " <<<< iteration " << total_iter << " >>>>";
-            long conns_window_size = opts().conn_window_size *
-                                     _server_index_lookup.size();
-            long max_outstanding   = std::min(opts().window_size,
-                                              conns_window_size) - 1;
-
-            progress(_test_opts.progress_count);
-            wait_for_responses(max_outstanding);
-            if (_status != OK) {
-                break;
-            }
-
-            if (_active_servers.empty()) {
-                // It is possible that the number of active servers to use is 0
-                // after wait_for_responses(), if some clients were closed in
-                // UCP Worker progress during handling of remote disconnection
-                // from servers
-                continue;
-            }
-
-            size_t server_index = pick_server_index();
-            io_op_t op          = get_op();
-            switch (op) {
-            case IO_READ:
-                if (opts().use_am) {
-                    do_io_read_am(server_index, sn);
-                } else {
-                    do_io_read(server_index, sn);
-                }
-                break;
-            case IO_WRITE:
-                if (opts().use_am) {
-                    do_io_write_am(server_index, sn);
-                } else {
-                    do_io_write(server_index, sn);
-                }
-                break;
-            default:
-                abort();
             }
 
             ++total_iter;
@@ -2335,6 +2380,37 @@ public:
                     check_time_limit(curr_time);
                 }
             }
+
+            if (iter_pause != 0 && total_iter % iter_pause == 0 &&
+                _active_servers.size() == server_num) {
+                wait_for_responses(0);
+                if (_status != OK) {
+                    break;
+                }
+                double curr_time = get_time();
+                report_performance(total_iter - total_prev_iter,
+                                   curr_time - prev_time);
+                total_prev_iter = total_iter;
+                prev_time       = curr_time;
+                check_time_limit(curr_time);
+                if (iter_pause < 0) {
+                    std::cout.sync_with_stdio();
+                    std::cout << "input iter_pause:" << "\n";
+                    std::cin >> iter_pause;
+                }
+                destroy_servers(iter_pause > 0);
+                if (iter_pause > 0) {
+                    std::cout.sync_with_stdio();
+                    std::cout << "input iter_pause:" << "\n";
+                    std::cin >> iter_pause;
+                }
+                // if (iter_count < 0) {
+                //     std::cout << "current iter:" << total_iter << "\n";
+                //     std::cout << "input iter_count:" << "\n";
+                //     std::cin >> iter_count;
+                //     test_io = iter_count > 0;
+                // }
+            }
         }
 
         wait_for_responses(0);
@@ -2344,7 +2420,7 @@ public:
                                curr_time - prev_time);
         }
 
-        destroy_servers();
+        destroy_servers(false);
 
         return _status;
     }
@@ -2701,6 +2777,7 @@ static int parse_args(int argc, char **argv, options_t *test_opts)
     test_opts->num_offcache_buffers  = 0;
     test_opts->iomsg_size            = 256;
     test_opts->iter_count            = 1000;
+    test_opts->iter_pause            = 0;
     test_opts->window_size           = 16;
     test_opts->conn_window_size      = 16;
     test_opts->random_seed           = std::time(NULL) ^ getpid();
@@ -2713,9 +2790,10 @@ static int parse_args(int argc, char **argv, options_t *test_opts)
     test_opts->progress_count        = 1;
     test_opts->prereg                = false;
     test_opts->per_conn_info         = false;
+    test_opts->server_multiple       = 1;
 
     while ((c = getopt(argc, argv,
-                       "p:c:r:d:b:i:w:a:k:o:t:n:l:s:y:vqeADHP:m:L:I:zV")) != -1) {
+                       "p:c:r:d:b:i:j:w:a:k:o:t:n:l:s:y:x:vqeADHP:m:L:I:zV")) != -1) {
         switch (c) {
         case 'p':
             test_opts->port_num = atoi(optarg);
@@ -2757,6 +2835,9 @@ static int parse_args(int argc, char **argv, options_t *test_opts)
             if (test_opts->iter_count == 0) {
                 test_opts->iter_count = std::numeric_limits<long int>::max();
             }
+            break;
+        case 'j':
+            test_opts->iter_pause = strtol(optarg, NULL, 0);
             break;
         case 'w':
             if (parse_window_size(optarg, test_opts->window_size,
@@ -2869,6 +2950,9 @@ static int parse_args(int argc, char **argv, options_t *test_opts)
         case 'V':
             test_opts->per_conn_info = true;
             break;
+        case 'x':
+            test_opts->server_multiple = strtoul(optarg, NULL, 0);
+            break;
         case 'h':
         default:
             std::cout << "Usage: io_demo [options] [server_address]" << std::endl;
@@ -2884,6 +2968,7 @@ static int parse_args(int argc, char **argv, options_t *test_opts)
             std::cout << "                              size of IO payload" << std::endl;
             std::cout << "  -b <number of buffers>      Number of offcache IO buffers" << std::endl;
             std::cout << "  -i <iterations-count>       Number of iterations to run communication" << std::endl;
+            std::cout << "  -j <iterations-disconnect>  Number of iterations to run disconnection" << std::endl;
             std::cout << "  -w <window-size>            Number of outstanding requests" << std::endl;
             std::cout << "  -a <conn-window-size>       Number of outstanding requests per connection" << std::endl;
             std::cout << "  -k <chunk-size>             Split the data transfer to chunks of this size" << std::endl;
@@ -2912,12 +2997,22 @@ static int parse_args(int argc, char **argv, options_t *test_opts)
             std::cout << "  -I <src_addr>               Set source IP address to select network interface on client side" << std::endl;
             std::cout << "  -z                          Enable pre-register buffers for zero-copy" << std::endl;
             std::cout << "  -V                          Print per-connection info" << std::endl;
+            std::cout << "  -x                          Multiple server counts with <Number> " << std::endl;
             return -1;
         }
     }
 
     while (optind < argc) {
         test_opts->servers.push_back(argv[optind++]);
+    }
+
+    const size_t server_multiple = test_opts->server_multiple;
+    const size_t server_size = test_opts->servers.size();
+    test_opts->servers.reserve(server_size * server_multiple);
+    for (size_t i = 1; i < server_multiple; ++i) {
+        for (size_t j = 0; j != server_size; ++j) {
+            test_opts->servers.emplace_back(test_opts->servers[j]);
+        }
     }
 
     adjust_opts(test_opts);

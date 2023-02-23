@@ -2037,7 +2037,9 @@ static ucs_status_t uct_ib_verbs_md_open(struct ibv_device *ibv_device,
     struct ibv_context *ctx;
 
     /* Open verbs context */
+    UCS_PROFILE_CODE("ibv_open_device",{
     ctx = ibv_open_device(ibv_device);
+    })
     if (ctx == NULL) {
         ucs_diag("ibv_open_device(%s) failed: %m",
                  ibv_get_device_name(ibv_device));

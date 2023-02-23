@@ -16,6 +16,28 @@
 
 #include <poll.h>
 #include <rdma/rdma_cma.h>
+#include <ucs/profile/profile.h>
+
+#define UCS_PROFILE_0
+/**
+ * uct_rdmacm_cm_event_handler */
+// #define UCS_PROFILE_1
+/**
+ * uct_rdmacm_cm_handle_event_addr_resolved
+ * uct_rdmacm_cm_handle_event_connect_response */
+// #define UCS_PROFILE_2
+/**
+ * uct_rdmacm_cm_ack_event
+ * uct_rdmacm_cm_handle_event_route_resolved
+ * uct_rdmacm_cm_handle_event_connect_request
+ * uct_rdmacm_cm_handle_event_established
+*/
+// #define UCS_PROFILE_5
+/** rdma_resolve_route */
+// #define UCS_PROFILE_5
+/**
+ */
+#include <ucs/profile/profile_mod.h>
 
 
 ucs_status_t uct_rdmacm_cm_destroy_id(struct rdma_cm_id *id)
@@ -30,7 +52,9 @@ ucs_status_t uct_rdmacm_cm_destroy_id(struct rdma_cm_id *id)
     return UCS_OK;
 }
 
-ucs_status_t uct_rdmacm_cm_ack_event(struct rdma_cm_event *event)
+// ucs_status_t uct_rdmacm_cm_ack_event(struct rdma_cm_event *event)
+UCS_PROFILE_2_FUNC(ucs_status_t, uct_rdmacm_cm_ack_event, (event),
+        struct rdma_cm_event *event)
 {
     ucs_trace("ack event %p, cm_id %p", event, event->id);
 
@@ -362,7 +386,9 @@ static ucs_status_t uct_rdmacm_cm_query(uct_cm_h cm, uct_cm_attr_t *cm_attr)
     return UCS_OK;
 }
 
-static void uct_rdmacm_cm_handle_event_addr_resolved(struct rdma_cm_event *event)
+// static void uct_rdmacm_cm_handle_event_addr_resolved(struct rdma_cm_event *event)
+UCS_PROFILE_1_FUNC_VOID(uct_rdmacm_cm_handle_event_addr_resolved, (event),
+        struct rdma_cm_event *event)
 {
     uct_rdmacm_cm_ep_t *cep = (uct_rdmacm_cm_ep_t*)event->id->context;
     uct_rdmacm_cm_t    *cm  = uct_rdmacm_cm_ep_get_cm(cep);
@@ -375,7 +401,7 @@ static void uct_rdmacm_cm_handle_event_addr_resolved(struct rdma_cm_event *event
               uct_rdmacm_cm_ep_str(cep, ep_str, UCT_RDMACM_EP_STRING_LEN),
               event->id);
 
-    if (rdma_resolve_route(event->id, uct_rdmacm_cm_get_timeout(cm))) {
+    if (UCS_PROFILE_4_CALL(rdma_resolve_route, event->id, uct_rdmacm_cm_get_timeout(cm))) {
         ucs_diag("%s: rdma_resolve_route failed: %m",
                   uct_rdmacm_cm_ep_str(cep, ep_str, UCT_RDMACM_EP_STRING_LEN));
         remote_data.field_mask = 0;
@@ -383,7 +409,9 @@ static void uct_rdmacm_cm_handle_event_addr_resolved(struct rdma_cm_event *event
     }
 }
 
-static void uct_rdmacm_cm_handle_event_route_resolved(struct rdma_cm_event *event)
+// static void uct_rdmacm_cm_handle_event_route_resolved(struct rdma_cm_event *event)
+UCS_PROFILE_2_FUNC_VOID(uct_rdmacm_cm_handle_event_route_resolved, (event),
+        struct rdma_cm_event *event)
 {
     uct_rdmacm_cm_ep_t *cep = (uct_rdmacm_cm_ep_t*)event->id->context;
     uint8_t pack_priv_data[UCT_RDMACM_TCP_PRIV_DATA_LEN];
@@ -509,9 +537,11 @@ static ucs_status_t uct_rdmacm_cm_id_to_dev_addr(uct_rdmacm_cm_t *cm,
     return UCS_OK;
 }
 
-static void
-uct_rdmacm_cm_handle_event_connect_request(uct_rdmacm_cm_t *cm,
-                                           struct rdma_cm_event *event)
+// static void
+// uct_rdmacm_cm_handle_event_connect_request(uct_rdmacm_cm_t *cm,
+UCS_PROFILE_2_FUNC_VOID(uct_rdmacm_cm_handle_event_connect_request, (cm, event),
+        uct_rdmacm_cm_t *cm, struct rdma_cm_event *event)
+                                        //    struct rdma_cm_event *event)
 {
     uct_rdmacm_priv_data_hdr_t          *hdr      = (uct_rdmacm_priv_data_hdr_t*)
                                                     event->param.conn.private_data;
@@ -575,7 +605,9 @@ err:
     uct_rdmacm_cm_ack_event(event);
 }
 
-static void uct_rdmacm_cm_handle_event_connect_response(struct rdma_cm_event *event)
+// static void uct_rdmacm_cm_handle_event_connect_response(struct rdma_cm_event *event)
+UCS_PROFILE_1_FUNC_VOID(uct_rdmacm_cm_handle_event_connect_response, (event),
+        struct rdma_cm_event *event)
 {
     uct_rdmacm_priv_data_hdr_t *hdr = (uct_rdmacm_priv_data_hdr_t*)
                                        event->param.conn.private_data;
@@ -620,7 +652,9 @@ static void uct_rdmacm_cm_handle_event_connect_response(struct rdma_cm_event *ev
     ucs_free(dev_addr);
 }
 
-static void uct_rdmacm_cm_handle_event_established(struct rdma_cm_event *event)
+// static void uct_rdmacm_cm_handle_event_established(struct rdma_cm_event *event)
+UCS_PROFILE_2_FUNC_VOID(uct_rdmacm_cm_handle_event_established, (event),
+        struct rdma_cm_event *event)
 {
     uct_rdmacm_cm_ep_t *cep = event->id->context;
 
@@ -801,8 +835,10 @@ uct_rdmacm_cm_process_event(uct_rdmacm_cm_t *cm, struct rdma_cm_event *event)
     }
 }
 
-static void uct_rdmacm_cm_event_handler(int fd, ucs_event_set_types_t events,
-                                        void *arg)
+// static void uct_rdmacm_cm_event_handler(int fd, ucs_event_set_types_t events,
+//                                         void *arg)
+UCS_PROFILE_FUNC_VOID(uct_rdmacm_cm_event_handler, (fd, events, arg),
+        int fd, ucs_event_set_types_t events, void *arg)
 {
     uct_rdmacm_cm_t      *cm = (uct_rdmacm_cm_t*)arg;
     struct rdma_cm_event *event;

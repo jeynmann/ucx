@@ -315,6 +315,7 @@ void ucs_class_check_new_func_result(ucs_status_t status, void *obj);
  */
 UCS_CLASS_DECLARE(void);
 
+
 END_C_DECLS
 
 #endif

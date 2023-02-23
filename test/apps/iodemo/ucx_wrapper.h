@@ -8,10 +8,12 @@
 #define IODEMO_UCX_WRAPPER_H_
 
 #include <ucp/api/ucp.h>
+#include <uct/api/uct.h>
 #include <ucs/algorithm/crc.h>
 #include <ucs/datastruct/list.h>
 #include <ucs/sys/math.h>
 #include <ucs/sys/sock.h>
+#include <ucs/profile/profile.h>
 #include <deque>
 #include <exception>
 #include <iostream>

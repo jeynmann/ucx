@@ -31,6 +31,17 @@
 #include <uct/ib/ud/base/ud_def.h>
 #include <uct/ib/ud/base/ud_inl.h>
 
+#define UCS_PROFILE_0
+/**
+ * ibv_create_qp
+ * ibv_create_qp_ex
+*/
+// #define UCS_PROFILE_1
+/**
+ * uct_ud_mlx5_iface_post_recv
+ * uct_ud_mlx5_iface_progress */
+#include <ucs/profile/profile_mod.h>
+
 
 static ucs_config_field_t uct_ud_mlx5_iface_config_table[] = {
   {"UD_", "", NULL,
@@ -187,8 +198,9 @@ static uint16_t uct_ud_mlx5_ep_send_ctl(uct_ud_ep_t *ud_ep, uct_ud_send_skb_t *s
     return sn;
 }
 
-static UCS_F_NOINLINE void
-uct_ud_mlx5_iface_post_recv(uct_ud_mlx5_iface_t *iface)
+// static UCS_F_NOINLINE void
+// uct_ud_mlx5_iface_post_recv(uct_ud_mlx5_iface_t *iface)
+UCS_PROFILE_1_FUNC_VOID(uct_ud_mlx5_iface_post_recv, (iface), uct_ud_mlx5_iface_t *iface)
 {
     unsigned batch = iface->super.super.config.rx_max_batch;
     struct mlx5_wqe_data_seg *rx_wqes;
@@ -570,7 +582,8 @@ uct_ud_mlx5_iface_poll_tx(uct_ud_mlx5_iface_t *iface, int is_async)
     return 1;
 }
 
-static unsigned uct_ud_mlx5_iface_progress(uct_iface_h tl_iface)
+UCS_PROFILE_1_FUNC(unsigned, uct_ud_mlx5_iface_progress, (tl_iface), uct_iface_h tl_iface)
+// static unsigned uct_ud_mlx5_iface_progress(uct_iface_h tl_iface)
 {
     uct_ud_mlx5_iface_t *iface = ucs_derived_of(tl_iface, uct_ud_mlx5_iface_t);
     unsigned n, count;

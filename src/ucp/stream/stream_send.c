@@ -90,9 +90,12 @@ ucp_stream_send_req(ucp_request_t *req, size_t count,
     return req + 1;
 }
 
-UCS_PROFILE_FUNC(ucs_status_ptr_t, ucp_stream_send_nb,
-                 (ep, buffer, count, datatype, cb, flags),
-                 ucp_ep_h ep, const void *buffer, size_t count,
+// UCS_PROFILE_FUNC(ucs_status_ptr_t, ucp_stream_send_nb,
+//                  (ep, buffer, count, datatype, cb, flags),
+//                  ucp_ep_h ep, const void *buffer, size_t count,
+//                  ucp_datatype_t datatype, ucp_send_callback_t cb,
+//                  unsigned flags)
+ucs_status_ptr_t ucp_stream_send_nb(ucp_ep_h ep, const void *buffer, size_t count,
                  ucp_datatype_t datatype, ucp_send_callback_t cb,
                  unsigned flags)
 {
@@ -122,6 +125,9 @@ UCS_PROFILE_FUNC(ucs_status_ptr_t, ucp_stream_send_nbx,
                  (ep, buffer, count, param),
                  ucp_ep_h ep, const void *buffer, size_t count,
                  const ucp_request_param_t *param)
+// ucs_status_ptr_t  ucp_stream_send_nbx,
+//                  (ucp_ep_h ep, const void *buffer, size_t count,
+//                  const ucp_request_param_t *param)
 {
     ucp_datatype_t datatype;
     ucp_request_t *req;

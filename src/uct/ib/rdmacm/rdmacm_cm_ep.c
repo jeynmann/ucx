@@ -15,6 +15,28 @@
 #include <ucs/async/async.h>
 #include <ucs/profile/profile.h>
 
+#define UCS_PROFILE_0
+/**
+ * ibv_create_qp
+ * rdma_connect
+ * rdma_accepy
+*/
+#define UCS_PROFILE_1
+/* 
+uct_rdmacm_cm_ep_t_delete
+uct_rdmacm_cm_destroy_id
+*/
+// #define UCS_PROFILE_2
+/* uct_rdmacm_cm_ep_connect */
+// #define UCS_PROFILE_3
+/* uct_rdmacm_cm_ep_send_priv_data */
+// #define UCS_PROFILE_4
+// #define UCS_PROFILE_5
+/**
+ * uct_rdamcm_cm_ep_create_qpn
+ * uct_ep_connect_params_get */
+#include <ucs/profile/profile_mod.h>
+
 
 const char* uct_rdmacm_cm_ep_str(uct_rdmacm_cm_ep_t *cep, char *str,
                                  size_t max_len)
@@ -424,7 +446,7 @@ uct_rdamcm_cm_ep_set_qp_num(struct rdma_conn_param *conn_param,
         return status;
     }
 
-    status = uct_rdamcm_cm_ep_create_qpn(ctx, cep, &conn_param->qp_num);
+    status = UCS_PROFILE_5_CALL(uct_rdamcm_cm_ep_create_qpn, ctx, cep, &conn_param->qp_num);
     if (status != UCS_OK) {
         return status;
     }
@@ -663,7 +685,7 @@ uct_rdmacm_cm_ep_send_priv_data(uct_rdmacm_cm_ep_t *cep, const void *priv_data,
         ucs_trace("%s rdma_connect on cm_id %p",
                   uct_rdmacm_cm_ep_str(cep, ep_str, UCT_RDMACM_EP_STRING_LEN),
                   cep->id);
-        if (rdma_connect(cep->id, &conn_param)) {
+        if (UCS_PROFILE_CALL(rdma_connect,cep->id, &conn_param)) {
             uct_cm_ep_peer_error(&cep->super,
                                  "rdma_connect(on id=%p) failed: %m", cep->id);
             status = UCS_ERR_IO_ERROR;
@@ -674,7 +696,7 @@ uct_rdmacm_cm_ep_send_priv_data(uct_rdmacm_cm_ep_t *cep, const void *priv_data,
         ucs_trace("%s: rdma_accept on cm_id %p",
                   uct_rdmacm_cm_ep_str(cep, ep_str, UCT_RDMACM_EP_STRING_LEN),
                   cep->id);
-        if (rdma_accept(cep->id, &conn_param)) {
+        if (UCS_PROFILE_CALL(rdma_accept,cep->id, &conn_param)) {
             uct_cm_ep_peer_error(&cep->super,
                                  "rdma_accept(on id=%p) failed: %m", cep->id);
             status = UCS_ERR_CONNECTION_RESET;
@@ -690,17 +712,19 @@ err:
     return status;
 }
 
-ucs_status_t
-uct_rdmacm_cm_ep_connect(uct_ep_h ep, const uct_ep_connect_params_t *params)
+UCS_PROFILE_2_FUNC(ucs_status_t,uct_rdmacm_cm_ep_connect,(ep,params),
+        uct_ep_h ep, const uct_ep_connect_params_t *params)
+// ucs_status_t
+// uct_rdmacm_cm_ep_connect(uct_ep_h ep, const uct_ep_connect_params_t *params)
 {
     uct_rdmacm_cm_ep_t *cep = ucs_derived_of(ep, uct_rdmacm_cm_ep_t);
     const void *priv_data;
     size_t priv_data_length;
     ucs_status_t status;
 
-    uct_ep_connect_params_get(params, &priv_data, &priv_data_length);
+    UCS_PROFILE_3_CALL_VOID(uct_ep_connect_params_get, params, &priv_data, &priv_data_length);
     UCS_ASYNC_BLOCK(uct_rdmacm_cm_ep_get_async(cep));
-    status = uct_rdmacm_cm_ep_send_priv_data(cep, priv_data, priv_data_length);
+    status = UCS_PROFILE_3_CALL(uct_rdmacm_cm_ep_send_priv_data,cep, priv_data, priv_data_length);
     UCS_ASYNC_UNBLOCK(uct_rdmacm_cm_ep_get_async(cep));
     return status;
 }
@@ -828,11 +852,12 @@ UCS_CLASS_CLEANUP_FUNC(uct_rdmacm_cm_ep_t)
 
     /* rdma_destroy_id() cleans all events not yet reported on progress thread,
      * so no events would be reported to the user after destroying the id */
-    uct_rdmacm_cm_destroy_id(self->id);
+    UCS_PROFILE_1_CALL_VOID(uct_rdmacm_cm_destroy_id, self->id);
 
     UCS_ASYNC_UNBLOCK(worker_priv->async);
 }
 
 UCS_CLASS_DEFINE(uct_rdmacm_cm_ep_t, uct_cm_base_ep_t);
 UCS_CLASS_DEFINE_NEW_FUNC(uct_rdmacm_cm_ep_t, uct_ep_t, const uct_ep_params_t *);
-UCS_CLASS_DEFINE_DELETE_FUNC(uct_rdmacm_cm_ep_t, uct_ep_t);
+// UCS_CLASS_DEFINE_DELETE_FUNC(uct_rdmacm_cm_ep_t, uct_ep_t);
+UCS_PROFILE_1_CLASS_DEFINE_DELETE_FUNC(uct_rdmacm_cm_ep_t, uct_ep_t);

@@ -35,8 +35,23 @@
 #include <ucs/debug/debug_int.h>
 #include <ucs/sys/string.h>
 #include <ucs/sys/sock.h>
+#include <ucs/profile/profile.h>
 #include <ucs/vfs/base/vfs_obj.h>
 #include <string.h>
+
+#define UCS_PROFILE_0
+/**  */
+#define UCS_PROFILE_3
+/** ucp_ep_create_base */
+// #define UCS_PROFILE_4
+/**
+ * ucp_ep_client_cm_connect_start
+ * ucp_ep_discard_lanes */
+// #define UCS_PROFILE_5
+/**
+ * ucp_ep_init_create_wireup
+ * ucp_ep_disconnected */
+#include <ucs/profile/profile_mod.h>
 
 __KHASH_IMPL(ucp_ep_peer_mem_hash, kh_inline, uint64_t,
              ucp_ep_peer_mem_data_t, 1,
@@ -857,13 +872,13 @@ static ucs_status_t ucp_ep_create_to_sock_addr(ucp_worker_h worker,
     ep_init_flags = ucp_ep_init_flags(worker, params) |
                     ucp_cm_ep_init_flags(params);
 
-    status = ucp_ep_create_base(worker, ep_init_flags, peer_name,
+    status = UCS_PROFILE_3_CALL(ucp_ep_create_base, worker, ep_init_flags, peer_name,
                                 "from api call", &ep);
     if (status != UCS_OK) {
         goto err;
     }
 
-    status = ucp_ep_init_create_wireup(ep, ep_init_flags, &wireup_ep);
+    status = UCS_PROFILE_5_CALL(ucp_ep_init_create_wireup, ep, ep_init_flags, &wireup_ep);
     if (status != UCS_OK) {
         goto err_delete;
     }
@@ -878,7 +893,7 @@ static ucs_status_t ucp_ep_create_to_sock_addr(ucp_worker_h worker,
         goto err_cleanup_lanes;
     }
 
-    status = ucp_ep_client_cm_connect_start(ep, params);
+    status = UCS_PROFILE_4_CALL(ucp_ep_client_cm_connect_start, ep, params);
     if (status != UCS_OK) {
         goto err_cleanup_lanes;
     }
@@ -1679,7 +1694,7 @@ ucs_status_ptr_t ucp_ep_close_nb(ucp_ep_h ep, unsigned mode)
                         UCP_EP_CLOSE_FLAG_FORCE : 0
     };
 
-    return ucp_ep_close_nbx(ep, &param);
+    return UCS_PROFILE_4_CALL(ucp_ep_close_nbx, ep, &param);
 }
 
 ucs_status_ptr_t ucp_ep_close_nbx(ucp_ep_h ep, const ucp_request_param_t *param)
@@ -1707,8 +1722,8 @@ ucs_status_ptr_t ucp_ep_close_nbx(ucp_ep_h ep, const ucp_request_param_t *param)
     ucp_ep_update_flags(ep, UCP_EP_FLAG_CLOSED, 0);
 
     if (ucp_request_param_flags(param) & UCP_EP_CLOSE_FLAG_FORCE) {
-        ucp_ep_discard_lanes(ep, UCS_ERR_CANCELED);
-        ucp_ep_disconnected(ep, 1);
+        UCS_PROFILE_4_CALL_VOID(ucp_ep_discard_lanes, ep, UCS_ERR_CANCELED);
+        UCS_PROFILE_5_CALL_VOID(ucp_ep_disconnected, ep, 1);
     } else {
         request = ucp_ep_flush_internal(ep, 0, param, NULL,
                                         ucp_ep_close_flushed_callback, "close");

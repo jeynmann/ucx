@@ -1722,7 +1722,9 @@ static ucs_status_t uct_ib_mlx5dv_md_open(struct ibv_device *ibv_device,
         return UCS_ERR_UNSUPPORTED;
     }
 
+    UCS_PROFILE_CODE("ibv_open_device",{
     ctx = ibv_open_device(ibv_device);
+    })
     if (ctx == NULL) {
         ucs_diag("ibv_open_device(%s) failed: %m",
                  ibv_get_device_name(ibv_device));
@@ -1739,7 +1741,9 @@ static ucs_status_t uct_ib_mlx5dv_md_open(struct ibv_device *ibv_device,
 
     dev = &md->super.dev;
 
+    UCS_PROFILE_CODE("ibv_open_device",{
     status = uct_ib_device_query(dev, ibv_device);
+    })
     if (status != UCS_OK) {
         goto err_md_free;
     }

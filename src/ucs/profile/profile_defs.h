@@ -9,6 +9,8 @@
 
 #include <ucs/config/global_opts.h>
 #include <ucs/sys/compiler_def.h>
+#include <ucs/sys/preprocessor.h>
+#include <ucs/type/class.h>
 #include <ucs/time/time_def.h>
 #include <limits.h>
 
@@ -206,7 +208,7 @@ void ucs_profile_record(ucs_profile_context_t *ctx, ucs_profile_type_t type,
  * @param _code     Code block to run and profile.
  */
 #define UCS_PROFILE_CTX_CODE_ALWAYS(_ctx, _name, _code) \
-    { \
+    if (ucs_profile_is_on()) { \
         UCS_PROFILE_CTX_RECORD_ALWAYS(_ctx, UCS_PROFILE_TYPE_SCOPE_BEGIN, "", \
                                       0, 0); \
         ucs_compiler_fence(); \
@@ -214,6 +216,8 @@ void ucs_profile_record(ucs_profile_context_t *ctx, ucs_profile_type_t type,
         ucs_compiler_fence(); \
         UCS_PROFILE_CTX_RECORD_ALWAYS(_ctx, UCS_PROFILE_TYPE_SCOPE_END, _name, \
                                       0, 0); \
+    } else { \
+        _code; \
     }
 
 
@@ -276,12 +280,12 @@ void ucs_profile_record(ucs_profile_context_t *ctx, ucs_profile_type_t type,
  * @param ...     Function call arguments.
  */
 #define UCS_PROFILE_CTX_NAMED_CALL_ALWAYS(_ctx, _name, _func, ...) \
-    (ucs_profile_is_on() ? ({ \
+    ({ \
         ucs_typeof(_func(__VA_ARGS__)) retval; \
         \
         UCS_PROFILE_CTX_CODE_ALWAYS(_ctx, _name, retval = _func(__VA_ARGS__)); \
         retval; \
-    }) : _func(__VA_ARGS__))
+    })
 
 
 /**
@@ -290,8 +294,10 @@ void ucs_profile_record(ucs_profile_context_t *ctx, ucs_profile_type_t type,
  * @param _name   Event name.
  */
 #define UCS_PROFILE_SAMPLE_ALWAYS(_name) \
-    UCS_PROFILE_CTX_RECORD_ALWAYS(ucs_profile_default_ctx, \
-                                  UCS_PROFILE_TYPE_SAMPLE, (_name), 0, 0)
+    if (ucs_profile_is_on()) { \
+        UCS_PROFILE_CTX_RECORD_ALWAYS(ucs_profile_default_ctx, \
+                                    UCS_PROFILE_TYPE_SAMPLE, (_name), 0, 0) \
+    }
 
 
 /**
@@ -403,9 +409,74 @@ void ucs_profile_record(ucs_profile_context_t *ctx, ucs_profile_type_t type,
  * @param _param32  Custom 32-bit parameter.
  */
 #define UCS_PROFILE_REQUEST_EVENT_ALWAYS(_req, _name, _param32) \
+    if (ucs_profile_is_on()) { \
+        UCS_PROFILE_CTX_RECORD_ALWAYS(ucs_profile_default_ctx, \
+                                    UCS_PROFILE_TYPE_REQUEST_EVENT, (_name), \
+                                    (_param32), (uintptr_t)(_req)); \
+    }
+
+/*
+ * Profile a new request allocation.
+ *
+ * @param _req      Request pointer.
+ * @param _name     Allocation site name.
+ * @param _param32  Custom 32-bit parameter.
+ */
+#define UCS_PROFILE_REQUEST_NEW_ALWAYS(_req, _name, _param32) \
     UCS_PROFILE_CTX_RECORD_ALWAYS(ucs_profile_default_ctx, \
-                                  UCS_PROFILE_TYPE_REQUEST_EVENT, (_name), \
+                                  UCS_PROFILE_TYPE_REQUEST_NEW, (_name), \
                                   (_param32), (uintptr_t)(_req));
+
+
+/*
+ * Profile a request progress event with status check.
+ *
+ * @param _req      Request pointer.
+ * @param _name     Event name.
+ * @param _param32  Custom 32-bit parameter.
+ * @param _status   Status of the last progress event.
+ */
+#define UCS_PROFILE_REQUEST_EVENT_CHECK_STATUS_ALWAYS(_req, _name, _param32, _status) \
+    if (!UCS_STATUS_IS_ERR(_status)) { \
+        UCS_PROFILE_REQUEST_EVENT((_req), (_name), (_param32)); \
+    }
+
+
+/*
+ * Profile a request release.
+ *
+ * @param _req      Request pointer.
+ */
+#define UCS_PROFILE_REQUEST_FREE_ALWAYS(_req) \
+    UCS_PROFILE_CTX_RECORD_ALWAYS(ucs_profile_default_ctx, \
+                                  UCS_PROFILE_TYPE_REQUEST_FREE, "", 0, \
+                                  (uintptr_t)(_req));
+
+/**
+ * Profiled init
+ */
+#define UCS_PROFILE_CLASS_ARGLIST(...) \
+    (self, _myclass, _init_count, ## __VA_ARGS__)
+#define UCS_PROFILE_CLASS_INIT_FUNC_ALWAYS(_type, arglist, ...) \
+    UCS_PROFILE_FUNC(ucs_status_t, _UCS_CLASS_INIT_NAME(_type), arglist, \
+        (_type *self, ucs_class_t *_myclass, int *_init_count, ## __VA_ARGS__))
+
+/**
+ * Profiled clean
+ */
+#define UCS_PROFILE_CLASS_CLEANUP_FUNC_ALWAYS(_type) \
+    UCS_PROFILE_FUNC_VOID(_UCS_CLASS_CLEANUP_NAME(_type), (self), _type *self)
+
+/**
+ * Profiled delete
+ */
+#define UCS_PROFILE_CLASS_DEFINE_NAMED_DELETE_FUNC_ALWAYS(_name, _type, _argtype) \
+    UCS_PROFILE_FUNC_VOID(_name, (self), _argtype *self) \
+    { \
+        UCS_CLASS_DELETE(_type, self); \
+    }
+#define UCS_PROFILE_CLASS_DEFINE_DELETE_FUNC_ALWAYS(_type, _argtype) \
+    UCS_PROFILE_CLASS_DEFINE_NAMED_DELETE_FUNC_ALWAYS(UCS_CLASS_DELETE_FUNC_NAME(_type), _type, _argtype)
 
 END_C_DECLS
 

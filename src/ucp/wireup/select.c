@@ -20,6 +20,17 @@
 #include <string.h>
 #include <inttypes.h>
 
+// #define UCS_PROFILE_0
+#define UCS_PROFILE_1
+/**
+ * ucp_wireup_search_lanes */
+// #define UCS_PROFILE_5
+/**
+ * ucp_wireup_construct_lanes
+ * ucp_wireup_select_params_init
+*/
+#include <ucs/profile/profile_mod.h>
+
 #define UCP_WIREUP_RMA_BW_TEST_MSG_SIZE    262144
 #define UCP_WIREUP_UCT_EVENT_CAP_FLAGS     (UCT_IFACE_FLAG_EVENT_SEND_COMP | \
                                             UCT_IFACE_FLAG_EVENT_RECV)
@@ -2254,9 +2265,9 @@ ucp_wireup_select_lanes(ucp_ep_h ep, unsigned ep_init_flags,
     UCS_BITMAP_AND_INPLACE(&scalable_tl_bitmap, tl_bitmap);
 
     if (!UCS_BITMAP_IS_ZERO_INPLACE(&scalable_tl_bitmap)) {
-        ucp_wireup_select_params_init(&select_params, ep, ep_init_flags,
+        UCS_PROFILE_5_CALL_VOID(ucp_wireup_select_params_init, &select_params, ep, ep_init_flags,
                                       remote_address, scalable_tl_bitmap, 0);
-        status = ucp_wireup_search_lanes(&select_params, key->err_mode,
+        status = UCS_PROFILE_1_CALL(ucp_wireup_search_lanes, &select_params, key->err_mode,
                                          &select_ctx);
         if (status == UCS_OK) {
             goto out;
@@ -2267,16 +2278,16 @@ ucp_wireup_select_lanes(ucp_ep_h ep, unsigned ep_init_flags,
          * order to select best transports based on their scores only */
     }
 
-    ucp_wireup_select_params_init(&select_params, ep, ep_init_flags,
+    UCS_PROFILE_5_CALL_VOID(ucp_wireup_select_params_init, &select_params, ep, ep_init_flags,
                                   remote_address, tl_bitmap, show_error);
-    status = ucp_wireup_search_lanes(&select_params, key->err_mode,
+    status = UCS_PROFILE_1_CALL(ucp_wireup_search_lanes, &select_params, key->err_mode,
                                      &select_ctx);
     if (status != UCS_OK) {
         return status;
     }
 
 out:
-    status = ucp_wireup_construct_lanes(&select_params, &select_ctx,
+    status = UCS_PROFILE_5_CALL(ucp_wireup_construct_lanes, &select_params, &select_ctx,
                                         addr_indices, key);
     if (status != UCS_OK) {
         return status;

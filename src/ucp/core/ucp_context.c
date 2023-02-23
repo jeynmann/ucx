@@ -1010,7 +1010,7 @@ static int ucp_is_resource_enabled(const uct_tl_resource_desc_t *resource,
                                                     &config->tls, aux_tls,
                                                     rsc_flags, tl_cfg_mask);
 
-    ucs_trace(UCT_TL_RESOURCE_DESC_FMT " is %sabled",
+    ucs_warn(UCT_TL_RESOURCE_DESC_FMT " is %sabled",
               UCT_TL_RESOURCE_DESC_ARG(resource),
               (device_enabled && tl_enabled) ? "en" : "dis");
     return device_enabled && tl_enabled;

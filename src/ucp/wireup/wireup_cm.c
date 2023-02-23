@@ -17,6 +17,34 @@
 #include <ucs/sys/sock.h>
 #include <ucs/sys/string.h>
 
+#define UCS_PROFILE_0
+/**
+ * ucp_cm_client_uct_connect_progress
+ * ucp_cm_client_connect_progress */
+// #define UCS_PROFILE_1
+/**
+ * uct_ep_connect
+ * ucp_wireup_init_lanes
+ * ucp_cm_ep_client_initial_config_get */
+// #define UCS_PROFILE_2
+/**
+ * ucp_wireup_select_lanes <-(@ucp_cm_ep_client_initial_config_get) */
+// #define UCS_PROFILE_4
+/**
+ * uct_ep_create <-(@ucp_ep_client_cm_create_uct_ep)
+ * ucp_address_unpack <-(@ucp_cm_ep_client_initial_config_get,@ucp_cm_client_connect_progress)
+*/
+// #define UCS_PROFILE_5
+/**
+ * ucp_wireup_connect_local
+ * uct_cm_client_ep_conn_notify
+ * ucp_address_pack
+ * ucp_worker_get_ep_config
+ * ucp_cm_ep_init_lanes
+ * ucp_cm_ep_priv_data_pack
+ * ucp_wireup_replay_pending_requests */
+#include <ucs/profile/profile_mod.h>
+
 
 /**
  * @brief Check whether CM callback should be called or not.
@@ -201,14 +229,14 @@ ucp_cm_ep_client_initial_config_get(ucp_ep_h ucp_ep, unsigned ep_init_flags,
     /* Construct local dummy address for lanes selection taking an assumption
      * that server has the transports which are the best from client's
      * perspective. */
-    status = ucp_address_pack(worker, NULL, tl_bitmap, addr_pack_flags,
+    status = UCS_PROFILE_5_CALL(ucp_address_pack, worker, NULL, tl_bitmap, addr_pack_flags,
                               context->config.ext.worker_addr_version, NULL,
                               &ucp_addr_size, &ucp_addr);
     if (status != UCS_OK) {
         goto out;
     }
 
-    status = ucp_address_unpack(worker, ucp_addr, addr_pack_flags,
+    status = UCS_PROFILE_4_CALL(ucp_address_unpack, worker, ucp_addr, addr_pack_flags,
                                 &unpacked_addr);
     if (status != UCS_OK) {
         goto free_ucp_addr;
@@ -223,7 +251,7 @@ ucp_cm_ep_client_initial_config_get(ucp_ep_h ucp_ep, unsigned ep_init_flags,
     ucs_assert(unpacked_addr.address_count <= UCP_MAX_RESOURCES);
     ucp_ep_config_key_reset(key);
     ucp_ep_config_key_set_err_mode(key, wireup_ep->ep_init_flags);
-    status = ucp_wireup_select_lanes(ucp_ep,
+    status = UCS_PROFILE_2_CALL(ucp_wireup_select_lanes, ucp_ep,
                                      wireup_ep->ep_init_flags | ep_init_flags,
                                      *tl_bitmap, &unpacked_addr, addr_indices,
                                      key, 0);
@@ -425,7 +453,8 @@ out:
     return status;
 }
 
-static unsigned ucp_cm_client_uct_connect_progress(void *arg)
+// static unsigned ucp_cm_client_uct_connect_progress(void *arg)
+UCS_PROFILE_FUNC(unsigned, ucp_cm_client_uct_connect_progress, (arg), void* arg)
 {
     static const unsigned ep_init_flags_prio[] = {
         0, UCP_EP_INIT_KA_FROM_EXIST_LANES, UCP_EP_INIT_CREATE_AM_LANE_ONLY
@@ -459,7 +488,7 @@ static unsigned ucp_cm_client_uct_connect_progress(void *arg)
          * the previous call to this client's resolve_cb */
         ucp_wireup_cm_ep_cleanup(ep);
 
-        status = ucp_cm_ep_client_initial_config_get(ep, ep_init_flags,
+        status = UCS_PROFILE_1_CALL(ucp_cm_ep_client_initial_config_get,ep, ep_init_flags,
                                         &cm_wireup_ep->cm_resolve_tl_bitmap,
                                         &key);
         if (status != UCS_OK) {
@@ -468,7 +497,7 @@ static unsigned ucp_cm_client_uct_connect_progress(void *arg)
 
         ucp_ep_realloc_lanes(ep, key.num_lanes);
 
-        status = ucp_worker_get_ep_config(worker, &key, ep_init_flags,
+        status = UCS_PROFILE_5_CALL(ucp_worker_get_ep_config,worker, &key, ep_init_flags,
                                           &ep->cfg_index);
         if (status != UCS_OK) {
             goto err;
@@ -476,7 +505,7 @@ static unsigned ucp_cm_client_uct_connect_progress(void *arg)
 
         ep->am_lane = key.am_lane;
 
-        status = ucp_cm_ep_init_lanes(ep, &tl_bitmap);
+        status = UCS_PROFILE_5_CALL(ucp_cm_ep_init_lanes, ep, &tl_bitmap);
         if (status != UCS_OK) {
             goto err;
         }
@@ -493,7 +522,7 @@ static unsigned ucp_cm_client_uct_connect_progress(void *arg)
             fallback_log_level = UCS_LOG_LEVEL_ERROR;
         }
     
-        status = ucp_cm_ep_priv_data_pack(
+        status = UCS_PROFILE_5_CALL(ucp_cm_ep_priv_data_pack,
                 ep, &tl_bitmap, fallback_log_level,
                 context->config.ext.sa_client_min_hdr_version, &priv_data,
                 &priv_data_length, ep_init_flags);
@@ -513,11 +542,11 @@ static unsigned ucp_cm_client_uct_connect_progress(void *arg)
                                  UCT_EP_CONNECT_PARAM_FIELD_PRIVATE_DATA_LENGTH;
     params.private_data        = priv_data;
     params.private_data_length = priv_data_length;
-    status                     = uct_ep_connect(ucp_ep_get_cm_uct_ep(ep),
+    status                     = UCS_PROFILE_1_CALL(uct_ep_connect,ucp_ep_get_cm_uct_ep(ep),
                                                 &params);
     ucs_free(priv_data);
 
-    ucp_wireup_replay_pending_requests(ep, &tmp_pending_queue);
+    UCS_PROFILE_5_CALL_VOID(ucp_wireup_replay_pending_requests,ep, &tmp_pending_queue);
     if (status != UCS_OK) {
         goto err;
     }
@@ -613,7 +642,8 @@ ucp_cm_client_connect_prog_arg_free(ucp_cm_client_connect_progress_arg_t *arg)
 /*
  * The main thread progress part of connection establishment on client side
  */
-static unsigned ucp_cm_client_connect_progress(void *arg)
+// static unsigned ucp_cm_client_connect_progress(void *arg)
+UCS_PROFILE_FUNC(unsigned, ucp_cm_client_connect_progress, (arg), void *arg)
 {
     ucp_cm_client_connect_progress_arg_t *progress_arg = arg;
     ucp_ep_h ucp_ep                                    = progress_arg->ucp_ep;
@@ -647,7 +677,7 @@ static unsigned ucp_cm_client_connect_progress(void *arg)
                   UCP_SA_DATA_HEADER_VERSION_SHIFT;
     ucp_address = UCS_PTR_BYTE_OFFSET(progress_arg->sa_data,
                                       ucp_cm_sa_data_length(sa_data_ver));
-    status      = ucp_address_unpack(worker, ucp_address, pack_flags, &addr);
+    status      = UCS_PROFILE_4_CALL(ucp_address_unpack, worker, ucp_address, pack_flags, &addr);
     if (status != UCS_OK) {
         goto out;
     }
@@ -674,7 +704,7 @@ static unsigned ucp_cm_client_connect_progress(void *arg)
     dev_index = ucp_cm_tl_bitmap_get_dev_idx(worker->context, &tl_bitmap);
 
     ucp_context_dev_idx_tl_bitmap(context, dev_index, &tl_bitmap);
-    status    = ucp_wireup_init_lanes(ucp_ep, wireup_ep->ep_init_flags,
+    status = UCS_PROFILE_1_CALL(ucp_wireup_init_lanes, ucp_ep, wireup_ep->ep_init_flags,
                                       &tl_bitmap, &addr, addr_indices);
     if (status != UCS_OK) {
         ucs_debug("ep %p: failed to initialize lanes: %s", ucp_ep,
@@ -682,14 +712,14 @@ static unsigned ucp_cm_client_connect_progress(void *arg)
         goto out_free_addr;
     }
 
-    status = ucp_wireup_connect_local(ucp_ep, &addr, NULL);
+    status = UCS_PROFILE_5_CALL(ucp_wireup_connect_local, ucp_ep, &addr, NULL);
     if (status != UCS_OK) {
         ucs_debug("ep %p: failed to connect lanes: %s", ucp_ep,
                   ucs_status_string(status));
         goto out_free_addr;
     }
 
-    status = uct_cm_client_ep_conn_notify(uct_cm_ep);
+    status = UCS_PROFILE_5_CALL(uct_cm_client_ep_conn_notify, uct_cm_ep);
     if (status != UCS_OK) {
         ucs_debug("ep %p: failed to send notify: %s", ucp_ep,
                   ucs_status_string(status));
@@ -994,7 +1024,7 @@ ucs_status_t ucp_ep_client_cm_create_uct_ep(ucp_ep_h ucp_ep)
         cm_lane_params.local_sockaddr = &local_addr;
     }
 
-    status = uct_ep_create(&cm_lane_params, &cm_ep);
+    status = UCS_PROFILE_4_CALL(uct_ep_create, &cm_lane_params, &cm_ep);
     if (status != UCS_OK) {
         /* coverity[leaked_storage] */
         return status;

@@ -20,6 +20,8 @@
 
 #include <ucs/debug/memtrack.h>
 
+#define UCS_PROFILE_0
+#include <ucs/profile/profile_mod.h>
 
 #define AM_MSG_ID 0
 
@@ -51,38 +53,37 @@ EmptyCallback* EmptyCallback::get() {
 bool UcxLog::use_human_time = false;
 
 UcxLog::UcxLog(const char* prefix, bool enable, std::ostream *os, bool abort) :
-        _os(os), _abort(abort)
+        _ss(NULL), _os(os), _abort(abort)
 {
-    if (!enable) {
-        _ss = NULL;
-        return;
-    }
+    // if (!enable) {
+    //     return;
+    // }
 
-    struct timeval tv;
-    gettimeofday(&tv, NULL);
+    // struct timeval tv;
+    // gettimeofday(&tv, NULL);
 
-    struct tm tm;
-    char str[32];
-    if (use_human_time) {
-        strftime(str, sizeof(str), "[%a %b %d %T] ", localtime_r(&tv.tv_sec, &tm));
-    } else {
-        snprintf(str, sizeof(str), "[%lu.%06lu] ", tv.tv_sec, tv.tv_usec);
-    }
+    // struct tm tm;
+    // char str[32];
+    // if (use_human_time) {
+    //     strftime(str, sizeof(str), "[%a %b %d %T] ", localtime_r(&tv.tv_sec, &tm));
+    // } else {
+    //     snprintf(str, sizeof(str), "[%lu.%06lu] ", tv.tv_sec, tv.tv_usec);
+    // }
 
-    _ss = new std::stringstream();
-    (*_ss) << str << prefix << " ";
+    // _ss = new std::stringstream();
+    // (*_ss) << str << prefix << " ";
 }
 
 UcxLog::~UcxLog()
 {
-    if (_ss != NULL) {
-        (*_os) << (*_ss).str() << std::endl;
-        delete _ss;
+    // if (_ss != NULL) {
+    //     (*_os) << (*_ss).str() << std::endl;
+    //     delete _ss;
 
-        if (_abort) {
-            abort();
-        }
-    }
+    //     if (_abort) {
+    //         abort();
+    //     }
+    // }
 }
 
 #define UCX_LOG UcxLog("[UCX]", true)
@@ -227,13 +228,23 @@ void UcxContext::progress(unsigned count)
 
     progress_worker_event();
     do {
+        // UCS_PROFILE_CODE("progress_io_message", {
         progress_io_message();
+        // });
     } while ((++i < count) && progress_worker_event());
 
+    // UCS_PROFILE_CODE("progress_timed_out_conns", {
     progress_timed_out_conns();
+    // });
+    // UCS_PROFILE_CODE("progress_conn_requests", {
     progress_conn_requests();
+    // });
+    // UCS_PROFILE_CODE("progress_failed_connections", {
     progress_failed_connections();
+    // });
+    // UCS_PROFILE_CODE("progress_disconnected_connections", {
     progress_disconnected_connections();
+    // });
 }
 
 uint32_t UcxContext::get_next_conn_id()
@@ -535,9 +546,11 @@ void UcxContext::recv_io_message()
 
 void UcxContext::add_connection(UcxConnection *conn)
 {
+    // UCS_PROFILE_CODE(__FUNCTION__, {
     assert(_conns.find(conn->id()) == _conns.end());
     _conns[conn->id()] = conn;
     UCX_LOG << "added " << conn->get_log_prefix() << " to connection map";
+    // });
 }
 
 void UcxContext::remove_connection(UcxConnection *conn)
@@ -577,10 +590,12 @@ void UcxContext::remove_connection_inprogress(UcxConnection *conn)
 
 void UcxContext::move_connection_to_disconnecting(UcxConnection *conn)
 {
+    UCS_PROFILE_CODE(__FUNCTION__, {
     assert(_conns.find(conn->id()) == _conns.end());
     assert(find_connection_inprogress(conn) == _conns_in_progress.end());
     assert(!is_in_disconnecting_list(conn));
     _disconnecting_conns.push_back(conn);
+    });
 }
 
 void UcxContext::dispatch_connection_accepted(UcxConnection* conn)
@@ -1104,7 +1119,7 @@ void UcxConnection::connect_tag(UcxCallback *callback)
     size_t recv_len;
 
     // receive remote connection id
-    void *rreq = ucp_stream_recv_nb(_ep, &_remote_conn_id, 1, dt_int,
+    void *rreq = UCS_PROFILE_5_CALL(ucp_stream_recv_nb, _ep, &_remote_conn_id, 1, dt_int,
                                     stream_recv_callback, &recv_len,
                                     UCP_STREAM_RECV_FLAG_WAITALL);
     if (UCS_PTR_IS_PTR(rreq)) {
@@ -1123,11 +1138,11 @@ void UcxConnection::connect_tag(UcxCallback *callback)
     }
 
     // send local connection id
-    void *sreq = ucp_stream_send_nb(_ep, &_conn_id, 1, dt_int,
+    void *sreq = UCS_PROFILE_5_CALL(ucp_stream_send_nb, _ep, &_conn_id, 1, dt_int,
                                     common_request_callback, 0);
     // we do not have to check the status here, in case if the endpoint is
     // failed we should handle it in ep_params.err_handler.cb set above
-    process_request("conn_id send", sreq, EmptyCallback::get());
+    UCS_PROFILE_5_CALL_VOID(process_request, "conn_id send", sreq, EmptyCallback::get());
 }
 
 void UcxConnection::connect_am(UcxCallback *callback)
@@ -1150,7 +1165,10 @@ void UcxConnection::connect_common(ucp_ep_params_t &ep_params,
     ep_params.err_handler.cb   = error_callback;
     ep_params.err_handler.arg  = reinterpret_cast<void*>(this);
 
+    // UCS_PROFILE_CODE(__FUNCTION__, {
+    // UCS_PROFILE_CODE("ucp_ep_create", {
     ucs_status_t status = ucp_ep_create(_context.worker(), &ep_params, &_ep);
+    // })
     if (status != UCS_OK) {
         assert(_ep == NULL);
         UCX_LOG << "ucp_ep_create() failed: " << ucs_status_string(status);
@@ -1161,13 +1179,16 @@ void UcxConnection::connect_common(ucp_ep_params_t &ep_params,
     UCX_CONN_LOG << "created endpoint " << _ep << ", connection id "
                  << _conn_id;
 
+    // UCS_PROFILE_CODE("connect_tag", {
     if (_use_am) {
         connect_am(callback);
     } else {
         connect_tag(callback);
     }
+    // })
 
     _context.add_connection(this);
+    // })
 }
 
 void UcxConnection::established(ucs_status_t status)

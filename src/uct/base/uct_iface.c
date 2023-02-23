@@ -700,7 +700,10 @@ UCS_CLASS_INIT_FUNC(uct_base_ep_t, uct_base_iface_t *iface)
                                 iface->stats, "-%p", self);
 }
 
+// extern void ucs_callbackq_remove_if2(ucs_callbackq_t *cbq, ucs_callbackq_predicate_t pred,
+//                              void *arg);
 static UCS_CLASS_CLEANUP_FUNC(uct_base_ep_t)
+// UCS_PROFILE_FUNC_VOID(uct_base_ep_t_cleanup, (self), uct_base_ep_t* self)
 {
     uct_base_iface_t *iface = ucs_derived_of(self->super.iface,
                                              uct_base_iface_t);
