@@ -75,6 +75,7 @@ typedef struct {
     size_t                   max_data_size;
     size_t                   chunk_size;
     long                     iter_count;
+    unsigned long            server_multiple;
     long                     window_size;
     long                     conn_window_size;
     std::vector<io_op_t>     operations;
@@ -1496,6 +1497,7 @@ private:
             _client._num_sent -= get_num_uncompleted(_server_info);
             // Remove connection pointer
             _client._server_index_lookup.erase(_server_info.conn);
+            _client._inactive_servers.push(_server_index);
 
             reset_server_info(_server_info);
             delete this;
@@ -2157,26 +2159,41 @@ public:
     }
 
     void connect_all(bool force) {
-        if (_server_index_lookup.size() == _server_info.size()) {
+        const size_t lookup_size = _server_index_lookup.size();
+        if (lookup_size == _server_info.size()) {
+        // if (_server_index_lookup.size() == _server_info.size()) {
             assert((_status == OK) || (_status == TERMINATE_SIGNALED));
             // All servers are connected
             return;
         }
 
-        if (!force && !_server_index_lookup.empty()) {
+        if (!force && lookup_size) {
+        // if (!_server_index_lookup.empty()) {
             // The active list is not empty, and we don't have to check the
             // connect retry timeout
             return;
         }
 
         double curr_time = get_time();
-        for (size_t server_index = 0; server_index < _server_info.size();
-             ++server_index) {
+        size_t inactive_size = _inactive_servers.size();
+        if (_server_info.size() - lookup_size - inactive_size > 8) {
+            return;
+        }
+        if (inactive_size > 16) {
+            inactive_size = 16;
+        }
+        while (inactive_size) {
+            size_t server_index = _inactive_servers.front();
+            _inactive_servers.pop();
+            --inactive_size;
             server_info_t& server_info = _server_info[server_index];
-            if (server_info.conn != NULL) {
-                // Already connecting to this server
-                continue;
-            }
+        // for (size_t server_index = 0; server_index < _server_info.size();
+        //      ++server_index) {
+        //     server_info_t& server_info = _server_info[server_index];
+        //     if (server_info.conn != NULL) {
+        //         // Already connecting to this server
+        //         continue;
+        //     }
 
             // If retry count exceeded for at least one server, we should have
             // exited already
@@ -2186,6 +2203,7 @@ public:
             if (curr_time < (server_info.prev_connect_time +
                              opts().retry_interval)) {
                 // Not enough time elapsed since previous connection attempt
+                _inactive_servers.push(server_index);
                 continue;
             }
 
@@ -2252,9 +2270,19 @@ public:
         double prev_time     = get_time();
         long total_iter      = 0;
         long total_prev_iter = 0;
+        bool connect_force   = false;
 
-        while ((total_iter < opts().iter_count) && (_status == OK)) {
-            connect_all(is_control_iter(total_iter));
+        const long iter_count     = opts().iter_count;
+        const size_t server_count = _server_info.size();
+        for(size_t i = 0; i != server_count; ++i) {
+            _inactive_servers.push(i);
+        }
+
+        size_t connected_count = _server_index_lookup.size();
+        size_t connected_prev  = connected_count;
+
+        while ((total_iter != iter_count) && (_status == OK)) {
+            connect_all(connect_force || is_control_iter(total_iter));
             if (_status != OK) {
                 break;
             }
@@ -2283,33 +2311,41 @@ public:
                 break;
             }
 
-            if (_active_servers.empty()) {
+            connect_force = iter_count < 0 && _server_index_lookup.size() < server_count;
+            if (connect_force || _active_servers.empty()) {
                 // It is possible that the number of active servers to use is 0
                 // after wait_for_responses(), if some clients were closed in
                 // UCP Worker progress during handling of remote disconnection
                 // from servers
+                connected_count = _server_index_lookup.size();
+                if (connected_count - connected_prev > 100) {
+                    connected_prev = connected_count;
+                    report_performance(1, 1);
+                }
                 continue;
             }
 
-            size_t server_index = pick_server_index();
-            io_op_t op          = get_op();
-            switch (op) {
-            case IO_READ:
-                if (opts().use_am) {
-                    do_io_read_am(server_index, sn);
-                } else {
-                    do_io_read(server_index, sn);
+            if (iter_count > 0) {
+                size_t server_index = pick_server_index();
+                io_op_t op          = get_op();
+                switch (op) {
+                case IO_READ:
+                    if (opts().use_am) {
+                        do_io_read_am(server_index, sn);
+                    } else {
+                        do_io_read(server_index, sn);
+                    }
+                    break;
+                case IO_WRITE:
+                    if (opts().use_am) {
+                        do_io_write_am(server_index, sn);
+                    } else {
+                        do_io_write(server_index, sn);
+                    }
+                    break;
+                default:
+                    abort();
                 }
-                break;
-            case IO_WRITE:
-                if (opts().use_am) {
-                    do_io_write_am(server_index, sn);
-                } else {
-                    do_io_write(server_index, sn);
-                }
-                break;
-            default:
-                abort();
             }
 
             ++total_iter;
@@ -2332,6 +2368,9 @@ public:
                     prev_time       = curr_time;
 
                     check_time_limit(curr_time);
+                    // if (iter_count < 0) {
+                    //     sleep((int)opts().print_interval);
+                    // }
                 }
             }
         }
@@ -2568,6 +2607,7 @@ private:
     // Connection establishment is in progress
     std::set<size_t>                        _connecting_servers;
     // Active servers is the list of communicating servers
+    std::queue<size_t>                      _inactive_servers;
     std::vector<size_t>                     _active_servers;
     // Active server index to use for communications
     size_t                                  _next_active_index;
@@ -2700,6 +2740,7 @@ static int parse_args(int argc, char **argv, options_t *test_opts)
     test_opts->num_offcache_buffers  = 0;
     test_opts->iomsg_size            = 256;
     test_opts->iter_count            = 1000;
+    test_opts->server_multiple       = 1;
     test_opts->window_size           = 16;
     test_opts->conn_window_size      = 16;
     test_opts->random_seed           = std::time(NULL) ^ getpid();
@@ -2714,7 +2755,7 @@ static int parse_args(int argc, char **argv, options_t *test_opts)
     test_opts->per_conn_info         = false;
 
     while ((c = getopt(argc, argv,
-                       "p:c:r:d:b:i:w:a:k:o:t:n:l:s:y:vqeADHP:m:L:I:zV")) != -1) {
+                       "p:c:r:d:b:i:w:a:k:o:t:n:l:s:x:y:vqeADHP:m:L:I:zV")) != -1) {
         switch (c) {
         case 'p':
             test_opts->port_num = atoi(optarg);
@@ -2756,6 +2797,9 @@ static int parse_args(int argc, char **argv, options_t *test_opts)
             if (test_opts->iter_count == 0) {
                 test_opts->iter_count = std::numeric_limits<long int>::max();
             }
+            break;
+        case 'x':
+            test_opts->server_multiple = std::max(1ul,strtoul(optarg, NULL, 0));
             break;
         case 'w':
             if (parse_window_size(optarg, test_opts->window_size,
@@ -2917,6 +2961,14 @@ static int parse_args(int argc, char **argv, options_t *test_opts)
 
     while (optind < argc) {
         test_opts->servers.push_back(argv[optind++]);
+    }
+    size_t M = test_opts->servers.size();
+    size_t N = test_opts->server_multiple;
+    test_opts->servers.reserve(M * N);
+    for (size_t i = 1; i < N; ++i) {
+        for(size_t j = 0; j != M; ++j) {
+            test_opts->servers.emplace_back(test_opts->servers[j]);
+        }
     }
 
     adjust_opts(test_opts);
