@@ -276,8 +276,50 @@ ucp_cm_ep_sa_data_pack(ucp_ep_h ep, ucp_wireup_sockaddr_data_base_t *sa_data,
 }
 
 static ucs_status_t
+ucp_cm_ep_priv_space_is_enough(ucp_ep_h ep, const ucp_tl_bitmap_t *tl_bitmap,
+                               ucs_log_level_t log_level,
+                               unsigned ep_init_flags,
+                               ucp_object_version_t sa_data_version)
+{
+    ucp_worker_h worker   = ep->worker;
+    ucp_context_h context = worker->context;
+    unsigned pack_flags   = ucp_cm_address_pack_flags(worker);
+    size_t ucp_addr_size, sa_data_length;
+    ucp_rsc_index_t cm_idx;
+    ucs_status_t status;
+
+    if (ucp_ep_get_cm_wireup_ep(ep)->flags & UCP_WIREUP_EP_FLAG_SEND_CLIENT_ID) {
+        pack_flags |= UCP_ADDRESS_PACK_FLAG_CLIENT_ID;
+    }
+
+    if (ep_init_flags & UCP_EP_INIT_CREATE_AM_LANE_ONLY) {
+        pack_flags |= UCP_ADDRESS_PACK_FLAG_AM_ONLY;
+    }
+
+    status = ucp_address_length(worker, ep, tl_bitmap, pack_flags,
+                                context->config.ext.worker_addr_version,
+                                &ucp_addr_size);
+    if (status != UCS_OK) {
+        return status;
+    }
+
+    sa_data_length = ucp_cm_priv_data_length(ucp_addr_size, sa_data_version);
+    cm_idx         = ep->ext->cm_idx;
+    if (worker->cms[cm_idx].attr.max_conn_priv < sa_data_length) {
+        ucs_log(log_level,
+                "CM private data buffer is too small to pack UCP endpoint "
+                "info, ep %p service data version %u, size %lu, address length "
+                "%lu, cm %p max_conn_priv %lu", ep, sa_data_version,
+                sa_data_length - ucp_addr_size, ucp_addr_size,
+                worker->cms[cm_idx].cm, worker->cms[cm_idx].attr.max_conn_priv);
+        return UCS_ERR_BUFFER_TOO_SMALL;
+    }
+
+    return UCS_OK;
+}
+
+static ucs_status_t
 ucp_cm_ep_priv_data_pack(ucp_ep_h ep, const ucp_tl_bitmap_t *tl_bitmap,
-                         ucs_log_level_t log_level,
                          ucp_object_version_t sa_data_version,
                          void **data_buf_p, size_t *data_buf_length_p,
                          unsigned ep_init_flags)
@@ -315,12 +357,12 @@ ucp_cm_ep_priv_data_pack(ucp_ep_h ep, const ucp_tl_bitmap_t *tl_bitmap,
     sa_data_length = ucp_cm_priv_data_length(ucp_addr_size, sa_data_version);
     cm_idx         = ep->ext->cm_idx;
     if (worker->cms[cm_idx].attr.max_conn_priv < sa_data_length) {
-        ucs_log(log_level,
-                "CM private data buffer is too small to pack UCP endpoint"
-                " info, ep %p service data version %u, size %lu, address "
-                "length %lu, cm %p max_conn_priv %lu", ep, sa_data_version,
-                sa_data_length - ucp_addr_size, ucp_addr_size,
-                worker->cms[cm_idx].cm, worker->cms[cm_idx].attr.max_conn_priv);
+        ucs_error("CM private data buffer is too small to pack UCP endpoint "
+                  "info, ep %p service data version %u, size %lu, address "
+                  "length %lu, cm %p max_conn_priv %lu", ep, sa_data_version,
+                  sa_data_length - ucp_addr_size, ucp_addr_size,
+                  worker->cms[cm_idx].cm,
+                  worker->cms[cm_idx].attr.max_conn_priv);
         status = UCS_ERR_BUFFER_TOO_SMALL;
         goto err;
     }
@@ -365,17 +407,24 @@ ucp_wireup_cm_ep_cleanup(ucp_ep_t *ucp_ep)
     }
 }
 
-static ucs_status_t ucp_cm_ep_init_lanes(ucp_ep_h ep,
-                                         ucp_tl_bitmap_t *tl_bitmap)
+static ucs_status_t ucp_cm_ep_init_lanes(ucp_ep_h ep)
 {
     ucp_worker_h worker = ep->worker;
     ucs_status_t status = UCS_ERR_NO_RESOURCE;
+    const ucp_ep_config_key_t *key;
     ucp_lane_index_t lane_idx;
     ucp_rsc_index_t rsc_idx;
     uint8_t path_index;
     uct_ep_h uct_ep;
 
-    UCS_BITMAP_CLEAR(tl_bitmap);
+    key    = &ucp_ep_config(ep)->key;
+    status = ucp_ep_realloc_lanes(ep, key->num_lanes);
+    if (status != UCS_OK) {
+        goto out;
+    }
+
+    ep->am_lane = key->am_lane;
+
     for (lane_idx = 0; lane_idx < ucp_ep_num_lanes(ep); ++lane_idx) {
         if (lane_idx == ucp_ep_get_cm_lane(ep)) {
             continue;
@@ -393,7 +442,6 @@ static ucs_status_t ucp_cm_ep_init_lanes(ucp_ep_h ep,
 
         ucp_ep_set_lane(ep, lane_idx, uct_ep);
 
-        UCS_BITMAP_SET(*tl_bitmap, rsc_idx);
         if (ucp_ep_config(ep)->p2p_lanes & UCS_BIT(lane_idx)) {
             path_index = ucp_ep_get_path_index(ep, lane_idx);
             status     = ucp_wireup_ep_connect(ucp_ep_get_lane(ep, lane_idx), 0,
@@ -417,6 +465,9 @@ static unsigned ucp_cm_client_uct_connect_progress(void *arg)
     static const unsigned ep_init_flags_prio[] = {
         0, UCP_EP_INIT_KA_FROM_EXIST_LANES, UCP_EP_INIT_CREATE_AM_LANE_ONLY
     };
+    static const unsigned cm_pack_log_level[]  = {
+        UCS_LOG_LEVEL_DEBUG, UCS_LOG_LEVEL_DEBUG, UCS_LOG_LEVEL_DIAG
+    };
     ucp_ep_h ep                                = arg;
     ucp_worker_h worker                        = ep->worker;
     ucp_context_h context                      = worker->context;
@@ -439,12 +490,13 @@ static unsigned ucp_cm_client_uct_connect_progress(void *arg)
     UCS_STATIC_ASSERT(ucs_static_array_size(ep_init_flags_prio) > 0);
 
     ucp_wireup_eps_pending_extract(ep, &tmp_pending_queue);
+
+    /* Cleanup the previously created UCP EP. The one that was created on
+     * the previous call to this client's resolve_cb */
+    ucp_wireup_cm_ep_cleanup(ep);
+
     for (i = 0; i < ucs_static_array_size(ep_init_flags_prio); ++i) {
         ep_init_flags = ep_init_flags_prio[i];
-
-        /* Cleanup the previously created UCP EP. The one that was created on
-         * the previous call to this client's resolve_cb */
-        ucp_wireup_cm_ep_cleanup(ep);
 
         status = ucp_cm_ep_client_initial_config_get(ep, ep_init_flags,
                                         &cm_wireup_ep->cm_resolve_tl_bitmap,
@@ -453,37 +505,23 @@ static unsigned ucp_cm_client_uct_connect_progress(void *arg)
             goto try_fallback;
         }
 
-        ucp_ep_realloc_lanes(ep, key.num_lanes);
-
         status = ucp_worker_get_ep_config(worker, &key, ep_init_flags,
                                           &ep->cfg_index);
         if (status != UCS_OK) {
             goto err;
         }
 
-        ep->am_lane = key.am_lane;
+        fallback_log_level = cm_pack_log_level[i];
+        if ((i == ucs_static_array_size(ep_init_flags_prio) - 1) &&
+            (ucp_cm_client_get_next_cm_idx(ep) == UCP_NULL_RESOURCE)) {
+             /* No options for fallback */
+             fallback_log_level = UCS_LOG_LEVEL_ERROR;
+         }
 
-        status = ucp_cm_ep_init_lanes(ep, &tl_bitmap);
-        if (status != UCS_OK) {
-            goto err;
-        }
-
-        if (i < (ucs_static_array_size(ep_init_flags_prio) - 1)) {
-            /* Can use another variant of endpoint's initialization flags for
-             * fallback */
-            fallback_log_level = UCS_LOG_LEVEL_DEBUG;
-        } else if (ucp_cm_client_get_next_cm_idx(ep) != UCP_NULL_RESOURCE) {
-            /* Can use another CM for fallback */
-            fallback_log_level = UCS_LOG_LEVEL_DIAG;
-        } else {
-            /* No options for fallback */
-            fallback_log_level = UCS_LOG_LEVEL_ERROR;
-        }
-    
-        status = ucp_cm_ep_priv_data_pack(
-                ep, &tl_bitmap, fallback_log_level,
-                context->config.ext.sa_client_min_hdr_version, &priv_data,
-                &priv_data_length, ep_init_flags);
+        ucp_ep_get_tl_bitmap(ep, &tl_bitmap);
+        status = ucp_cm_ep_priv_space_is_enough(ep, &tl_bitmap,
+                fallback_log_level, ep_init_flags,
+                context->config.ext.sa_client_min_hdr_version);
         if (status == UCS_OK) {
             break;
         } else if (status != UCS_ERR_BUFFER_TOO_SMALL) {
@@ -494,6 +532,18 @@ static unsigned ucp_cm_client_uct_connect_progress(void *arg)
     if (status == UCS_ERR_BUFFER_TOO_SMALL) {
         ucs_assert(i == ucs_static_array_size(ep_init_flags_prio));
         goto try_fallback;
+    }
+
+    status = ucp_cm_ep_init_lanes(ep);
+    if (status != UCS_OK) {
+        goto err;
+    }
+
+    status = ucp_cm_ep_priv_data_pack(ep, &tl_bitmap,
+             context->config.ext.sa_client_min_hdr_version, &priv_data,
+             &priv_data_length, ep_init_flags);
+    if (status != UCS_OK) {
+        goto err;
     }
 
     params.field_mask          = UCT_EP_CONNECT_PARAM_FIELD_PRIVATE_DATA |
@@ -513,6 +563,13 @@ static unsigned ucp_cm_client_uct_connect_progress(void *arg)
     goto out;
 
 try_fallback:
+    if (status == UCS_ERR_BUFFER_TOO_SMALL) {
+        status = ucp_cm_ep_init_lanes(ep);
+        if (status != UCS_OK) {
+            goto err;
+        }
+    }
+
     ucp_wireup_replay_pending_requests(ep, &tmp_pending_queue);
     if (ucp_cm_client_try_fallback_cms(ep)) {
         /* Can fallback to the next CM to retry getting CM initial config to
@@ -1288,7 +1345,7 @@ ucp_ep_server_init_priv_data(ucp_ep_h ep, const char *dev_name,
                              const void **data_buf_p, size_t *data_buf_size_p,
                              unsigned ep_init_flags,
                              ucp_object_version_t sa_data_version)
-{
+{ 
     ucp_worker_h worker = ep->worker;
     ucp_tl_bitmap_t tl_bitmap;
     ucp_tl_bitmap_t ctx_tl_bitmap;
@@ -1307,9 +1364,14 @@ ucp_ep_server_init_priv_data(ucp_ep_h ep, const char *dev_name,
     ucp_context_dev_tl_bitmap(worker->context, dev_name, &ctx_tl_bitmap);
     ucp_tl_bitmap_validate(&tl_bitmap, &ctx_tl_bitmap);
 
-    status = ucp_cm_ep_priv_data_pack(ep, &tl_bitmap, UCS_LOG_LEVEL_ERROR,
-                                      sa_data_version, (void**)data_buf_p,
-                                      data_buf_size_p, ep_init_flags);
+    status = ucp_cm_ep_priv_space_is_enough(ep, &tl_bitmap, UCS_LOG_LEVEL_ERROR,
+            ep_init_flags, sa_data_version);
+    if (status != UCS_OK) {
+        goto out;
+    }
+
+    status = ucp_cm_ep_priv_data_pack(ep, &tl_bitmap, sa_data_version,
+            (void**)data_buf_p, data_buf_size_p, ep_init_flags);
 
 out:
     UCS_ASYNC_UNBLOCK(&worker->async);

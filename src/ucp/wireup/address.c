@@ -1423,6 +1423,35 @@ out:
     return UCS_OK;
 }
 
+ucs_status_t ucp_address_length(ucp_worker_h worker, ucp_ep_h ep,
+                                const ucp_tl_bitmap_t *tl_bitmap,
+                                unsigned pack_flags,
+                                ucp_object_version_t addr_version,
+                                size_t *size_p)
+{
+    ucp_address_packed_device_t *devices;
+    ucp_rsc_index_t num_devices;
+    ucs_status_t status;
+    size_t size;
+
+    /* Collect all devices required to pack their address */
+    status = ucp_address_gather_devices(worker, ep, tl_bitmap, pack_flags,
+                                        addr_version, &devices, &num_devices);
+    if (status != UCS_OK) {
+        goto out;
+    }
+
+    /* Calculate the required ucp address length */
+    size = ucp_address_packed_size(worker, devices, num_devices, pack_flags,
+                                   addr_version);
+    *size_p   = size;
+    status    = UCS_OK;
+    ucs_free(devices);
+
+out:
+    return status;
+}
+
 ucs_status_t ucp_address_pack(ucp_worker_h worker, ucp_ep_h ep,
                               const ucp_tl_bitmap_t *tl_bitmap,
                               unsigned pack_flags,
