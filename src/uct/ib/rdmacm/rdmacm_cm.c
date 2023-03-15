@@ -736,7 +736,7 @@ uct_rdmacm_cm_process_event(uct_rdmacm_cm_t *cm, struct rdma_cm_event *event)
     uint8_t         ack_event                 = 1;
     char            ip_port_str[UCS_SOCKADDR_STRING_LEN];
 
-    ucs_trace("rdmacm event (fd=%d cm_id %p cm %p event_channel %p status %s"
+    ucs_debug("rdmacm event (fd=%d cm_id %p cm %p event_channel %p status %s"
               " (%d)): %s. Peer: %s.",
               cm->ev_ch->fd, event->id, cm, cm->ev_ch,
               uct_rdmacm_cm_event_status_str(event), event->status,

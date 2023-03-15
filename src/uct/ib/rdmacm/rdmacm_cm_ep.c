@@ -660,7 +660,7 @@ uct_rdmacm_cm_ep_send_priv_data(uct_rdmacm_cm_ep_t *cep, const void *priv_data,
     }
 
     if (cep->flags & UCT_RDMACM_CM_EP_ON_CLIENT) {
-        ucs_trace("%s rdma_connect on cm_id %p",
+        ucs_debug("%s rdma_connect on cm_id %p",
                   uct_rdmacm_cm_ep_str(cep, ep_str, UCT_RDMACM_EP_STRING_LEN),
                   cep->id);
         if (rdma_connect(cep->id, &conn_param)) {
@@ -671,7 +671,7 @@ uct_rdmacm_cm_ep_send_priv_data(uct_rdmacm_cm_ep_t *cep, const void *priv_data,
         }
     } else {
         ucs_assert(cep->flags & UCT_RDMACM_CM_EP_ON_SERVER);
-        ucs_trace("%s: rdma_accept on cm_id %p",
+        ucs_debug("%s: rdma_accept on cm_id %p",
                   uct_rdmacm_cm_ep_str(cep, ep_str, UCT_RDMACM_EP_STRING_LEN),
                   cep->id);
         if (rdma_accept(cep->id, &conn_param)) {
