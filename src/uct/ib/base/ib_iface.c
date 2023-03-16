@@ -731,10 +731,11 @@ void uct_ib_iface_fill_ah_attr_from_gid_lid(uct_ib_iface_t *iface, uint16_t lid,
 
     if (uct_ib_iface_is_roce(iface)) {
         // path_rand              = (iface->config.roce_path_factor * path_index);
-        path_rand              = (uint8_t)((rand() % 5) * path_index);
+        path_rand              = (uint8_t)(((ucs_rand() & 3) + 1) * path_index);
         ah_attr->dlid          = UCT_IB_ROCE_UDP_SRC_PORT_BASE | path_rand;
         /* Workaround rdma-core flow label to udp sport conversion */
         ah_attr->grh.flow_label = ~path_rand;
+        // ucs_debug("=DEBUG= iface %p path_rand %u", iface, (uint32_t)path_rand);
     } else {
         /* TODO iface->path_bits should be removed and replaced by path_index */
         path_bits              = iface->path_bits[path_index %

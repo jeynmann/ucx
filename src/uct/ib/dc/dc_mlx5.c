@@ -1406,6 +1406,7 @@ uct_dc_mlx5_iface_init_port_affinity(uct_dc_mlx5_iface_t *iface,
     }
 
     dct_port_affinity_idx = UCS_CONFIG_UINT_ENUM_INDEX(config->dct_port_affinity);
+    ucs_debug("=DEBUG= iface %p dct_port_affinity_idx %u", iface, (uint32_t)dct_port_affinity_idx);
     if (dct_port_affinity_idx == UCT_DC_MLX5_LAG_RESP_PORT_DEFAULT) {
         iface->rx.port_affinity = 0;
         return UCS_OK;
