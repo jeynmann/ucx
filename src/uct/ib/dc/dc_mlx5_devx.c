@@ -19,9 +19,11 @@ ucs_status_t uct_dc_mlx5_iface_devx_create_dct(uct_dc_mlx5_iface_t *iface)
 {
     uct_ib_iface_t *ib_iface   = &iface->super.super.super;
     uct_ib_mlx5_md_t *md       = uct_ib_mlx5_iface_md(ib_iface);
+    uct_ib_device_t *dev       = &md->super.dev;
     const uct_ib_mlx5_cq_t *cq = &iface->super.cq[UCT_IB_DIR_RX];
     char in[UCT_IB_MLX5DV_ST_SZ_BYTES(create_dct_in)]   = {};
     char out[UCT_IB_MLX5DV_ST_SZ_BYTES(create_dct_out)] = {};
+    uint32_t port_affinity;
     void *dctc;
 
     UCT_IB_MLX5DV_SET(create_dct_in, in, opcode, UCT_IB_MLX5_CMD_OP_CREATE_DCT);
@@ -50,7 +52,16 @@ ucs_status_t uct_dc_mlx5_iface_devx_create_dct(uct_dc_mlx5_iface_t *iface)
     if (!uct_ib_iface_is_roce(&iface->super.super.super)) {
         UCT_IB_MLX5DV_SET(dctc, dctc, pkey_index, ib_iface->pkey_index);
     }
-    UCT_IB_MLX5DV_SET(dctc, dctc, port, ib_iface->config.port_num);
+
+    if (iface->rx.port_affinity == 0) {
+        port_affinity = ib_iface->config.port_num;
+    } else if (iface->rx.port_affinity == (uint8_t)(-1)) {
+        ucs_rand_range(1, dev->lag_level, &port_affinity);
+    } else {
+        port_affinity = iface->rx.port_affinity;
+    }
+    UCT_IB_MLX5DV_SET(dctc, dctc, port, port_affinity);
+
     UCT_IB_MLX5DV_SET(dctc, dctc, min_rnr_nak,
                       iface->super.super.config.min_rnr_timer);
 

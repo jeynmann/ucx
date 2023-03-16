@@ -35,6 +35,12 @@ static const char *uct_dc_tx_policy_names[] = {
     [UCT_DC_TX_POLICY_LAST]          = NULL
 };
 
+static const char *uct_dct_port_affinity_policy_names[] = {
+    [UCT_DC_MLX5_LAG_RESP_PORT_DEFAULT] = "default",
+    [UCT_DC_MLX5_LAG_RESP_PORT_RANDOM]  = "random",
+    [UCT_DC_MLX5_LAG_RESP_PORT_LAST]    = NULL
+};
+
 /* DC specific parameters, expecting DC_ prefix */
 ucs_config_field_t uct_dc_mlx5_iface_config_sub_table[] = {
     {"RC_", "IB_TX_QUEUE_LEN=128;FC_ENABLE=y;", NULL,
@@ -86,6 +92,15 @@ ucs_config_field_t uct_dc_mlx5_iface_config_sub_table[] = {
      "Setting it to \"auto\" applies full-handshake on AR SLs.",
      ucs_offsetof(uct_dc_mlx5_iface_config_t, dci_full_handshake),
      UCS_CONFIG_TYPE_TERNARY},
+
+    {"DCT_PORT_AFFINITY", "default",
+     "Specifies how to set DCT port affinity under queue affinity RoCE LAG. "
+     "The values are:\n"
+     " default Use logic port number as affinity.\n"
+     " random  Use random policy to set port affinity.\n"
+     " <num>   Specify port affinity with specific slave port.",
+     ucs_offsetof(uct_dc_mlx5_iface_config_t, dct_port_affinity),
+     UCS_CONFIG_TYPE_UINT_ENUM(uct_dct_port_affinity_policy_names)},
 
     {"DCI_KA_FULL_HANDSHAKE", "no",
      "Force full-handshake protocol for DC keepalive initiator.",
@@ -1366,12 +1381,13 @@ static ucs_status_t uct_dc_mlx5_calc_sq_length(uct_ib_mlx5_md_t *md,
     return UCS_OK;
 }
 
-static void
-uct_dc_mlx5_iface_init_tx_port_affinity(uct_dc_mlx5_iface_t *iface,
-                                        const uct_dc_mlx5_iface_config_t *config)
+static ucs_status_t
+uct_dc_mlx5_iface_init_port_affinity(uct_dc_mlx5_iface_t *iface,
+                                     const uct_dc_mlx5_iface_config_t *config)
 {
     uct_ib_mlx5_md_t *md = ucs_derived_of(iface->super.super.super.super.md,
                                           uct_ib_mlx5_md_t);
+    uint8_t dct_port_affinity_idx;
 
     iface->tx.port_affinity = 0;
     if (config->tx_port_affinity == UCS_CONFIG_ON) {
@@ -1387,6 +1403,37 @@ uct_dc_mlx5_iface_init_tx_port_affinity(uct_dc_mlx5_iface_t *iface,
     } else if ((config->tx_port_affinity == UCS_CONFIG_AUTO) &&
                (md->port_select_mode == UCT_IB_MLX5_LAG_QUEUE_AFFINITY)) {
         iface->tx.port_affinity = 1;
+    }
+
+    dct_port_affinity_idx = UCS_CONFIG_UINT_ENUM_INDEX(config->dct_port_affinity);
+    if (dct_port_affinity_idx == UCT_DC_MLX5_LAG_RESP_PORT_DEFAULT) {
+        iface->rx.port_affinity = 0;
+        return UCS_OK;
+    }
+
+    if (dct_port_affinity_idx == UCT_DC_MLX5_LAG_RESP_PORT_RANDOM) {
+        if (md->super.dev.lag_level <= 1) {
+            iface->rx.port_affinity = 0;
+        } else {
+            iface->rx.port_affinity = -1;
+        }
+        return UCS_OK;
+    }
+
+    if (config->dct_port_affinity == iface->super.super.super.config.port_num) {
+        iface->rx.port_affinity = 0;
+        return UCS_OK;
+    }
+
+    if ((config->dct_port_affinity >= 1) &&
+        (config->dct_port_affinity <= md->super.dev.lag_level)) {
+        iface->rx.port_affinity = config->dct_port_affinity;
+        return UCS_OK;
+    } else {
+        ucs_error("Invalid dct_port_affinity = %u on device %s",
+                  config->dct_port_affinity,
+                  uct_ib_device_name(&md->super.dev));
+        return UCS_ERR_INVALID_PARAM;
     }
 }
 
@@ -1499,7 +1546,10 @@ static UCS_CLASS_INIT_FUNC(uct_dc_mlx5_iface_t, uct_md_h tl_md, uct_worker_h wor
         return UCS_ERR_INVALID_PARAM;
     }
 
-    uct_dc_mlx5_iface_init_tx_port_affinity(self, config);
+    status = uct_dc_mlx5_iface_init_port_affinity(self, config);
+    if (status != UCS_OK) {
+        goto err;
+    };
 
     UCT_DC_MLX5_CHECK_FORCE_FULL_HANDSHAKE(self, config, dci, DCI, status, err);
     UCT_DC_MLX5_CHECK_FORCE_FULL_HANDSHAKE(self, config, dci_ka, KEEPALIVE,

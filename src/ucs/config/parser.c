@@ -347,6 +347,37 @@ int ucs_config_sprintf_enum(char *buf, size_t max,
     return 1;
 }
 
+int ucs_config_sscanf_uint_enum(const char *buf, void *dest, const void *arg)
+{
+    int i;
+
+    i = ucs_string_find_in_list(buf, (const char**)arg, 0);
+    if (i >= 0) {
+        *(unsigned*)dest = UINT_MAX - i;
+        return 1;
+    }
+
+    return sscanf(buf, "%u", (unsigned*)dest);
+}
+
+int ucs_config_sprintf_uint_enum(char *buf, size_t max,
+                                 const void *src, const void *arg)
+{
+   char* const *table = arg;
+   int table_size;
+
+   for (table_size = 0; table[table_size] != NULL; table_size++) {
+       continue;
+   }
+
+   if ((UINT_MAX - table_size) < *(unsigned*)src) {
+        strncpy(buf, table[UINT_MAX - *(unsigned*)src], max);
+        return 1;
+   }
+
+   return snprintf(buf, max, "%u", *(unsigned*)src);
+}
+
 static void __print_table_values(char * const *table, char *buf, size_t max)
 {
     char *ptr = buf, *end = buf + max;
@@ -364,6 +395,12 @@ static void __print_table_values(char * const *table, char *buf, size_t max)
 void ucs_config_help_enum(char *buf, size_t max, const void *arg)
 {
     __print_table_values(arg, buf, max);
+}
+
+void ucs_config_help_uint_enum(char *buf, size_t max, const void *arg)
+{
+    snprintf(buf, max, "specific numerical value, or: ");
+    __print_table_values(arg, buf + strlen(buf), max - strlen(buf));
 }
 
 ucs_status_t ucs_config_clone_log_comp(const void *src, void *dst, const void *arg)
