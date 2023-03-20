@@ -60,7 +60,7 @@ ucs_status_t uct_dc_mlx5_iface_devx_create_dct(uct_dc_mlx5_iface_t *iface)
     } else {
         port_affinity = iface->rx.port_affinity;
     }
-    // ucs_debug("=DEBUG= iface %p port_affinity %u", iface, (uint32_t)port_affinity);
+    ucs_debug("=DEBUG= iface %p port_affinity %u", iface, (uint32_t)port_affinity);
     UCT_IB_MLX5DV_SET(dctc, dctc, port, port_affinity);
 
     UCT_IB_MLX5DV_SET(dctc, dctc, min_rnr_nak,
