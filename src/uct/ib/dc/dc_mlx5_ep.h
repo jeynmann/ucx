@@ -520,7 +520,7 @@ static inline void uct_dc_mlx5_iface_dci_alloc(uct_dc_mlx5_iface_t *iface, uct_d
         (void)uct_dc_mlx5_ep_qp_to_err(ep);
     }
 
-    ucx_rand_range(0, 4095, &rand_lid);
+    ucs_rand_range(0, 4095, &rand_lid);
     ep->av.rlid = htons(rand_lid | UCT_IB_ROCE_UDP_SRC_PORT_BASE);
 
     ucs_assertv(pool->stack_top > 0, "dci pool overflow, stack_top=%d",
