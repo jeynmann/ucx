@@ -506,6 +506,7 @@ static inline void uct_dc_mlx5_iface_dci_alloc(uct_dc_mlx5_iface_t *iface, uct_d
      */
     uint8_t pool_index           = uct_dc_mlx5_ep_pool_index(ep);
     uct_dc_mlx5_dci_pool_t *pool = &iface->tx.dci_pool[pool_index];
+    int rand_lid;
 
     ucs_assert(!uct_dc_mlx5_iface_is_dci_shared(iface));
     ucs_assert(pool->release_stack_top < pool->stack_top);
@@ -518,6 +519,9 @@ static inline void uct_dc_mlx5_iface_dci_alloc(uct_dc_mlx5_iface_t *iface, uct_d
     if (ep->flags & UCT_DC_MLX5_EP_FLAG_INVALIDATED) {
         (void)uct_dc_mlx5_ep_qp_to_err(ep);
     }
+
+    ucx_rand_range(0, 4095, &rand_lid);
+    ep->av.rlid = htons(rand_lid | UCT_IB_ROCE_UDP_SRC_PORT_BASE);
 
     ucs_assertv(pool->stack_top > 0, "dci pool overflow, stack_top=%d",
                 (int)pool->stack_top);
@@ -607,7 +611,7 @@ uct_dc_mlx5_iface_dci_get(uct_dc_mlx5_iface_t *iface, uct_dc_mlx5_ep_t *ep)
         waitq     = uct_dc_mlx5_iface_dci_waitq(iface, pool_index);
         if ((iface->tx.policy == UCT_DC_TX_POLICY_DCS_QUOTA) &&
             (available <= iface->tx.available_quota) &&
-            !ucs_arbiter_is_empty(waitq))
+            (1 || !ucs_arbiter_is_empty(waitq)))
         {
             ep->flags |= UCT_DC_MLX5_EP_FLAG_TX_WAIT;
             goto out_no_res;
