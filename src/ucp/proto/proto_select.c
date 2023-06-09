@@ -570,10 +570,8 @@ ucp_proto_select_get_lane_map(ucp_worker_h worker,
     range_end = -1;
     do {
         range_start = range_end + 1;
-        if (!ucp_proto_select_elem_query(worker, select_elem, range_start,
-                                         &query_attr)) {
-            break;
-        }
+        ucp_proto_select_elem_query(worker, select_elem, range_start,
+                                    &query_attr);
 
         range_end = query_attr.max_msg_length;
         lane_map |= query_attr.lane_map;
@@ -605,6 +603,7 @@ ucp_proto_select_wiface_activate(ucp_worker_h worker,
         rsc_index = ep_config_key->lanes[lane].rsc_index;
         wiface    = ucp_worker_iface(worker, rsc_index);
         ucp_worker_iface_progress_ep(wiface);
+        wiface->flags |= UCP_WORKER_IFACE_FLAG_KEEP_ACTIVE;
     }
 }
 
@@ -935,17 +934,11 @@ int ucp_proto_select_elem_query(ucp_worker_h worker,
 
     thresh_elem  = ucp_proto_select_thresholds_search(select_elem, msg_length);
     proto_config = &thresh_elem->proto_config;
-    if (proto_config->proto->flags & UCP_PROTO_FLAG_INVALID) {
-        return 0;
-    }
 
     ucp_proto_config_query(worker, proto_config, msg_length, proto_attr);
-    ucs_assertv(proto_attr->lane_map != 0,
-                "%s protocol information query output contains empty lane map",
-                proto_config->proto->name);
 
     proto_attr->max_msg_length = ucs_min(proto_attr->max_msg_length,
                                          thresh_elem->max_msg_length);
 
-    return 1;
+    return !(thresh_elem->proto_config.proto->flags & UCP_PROTO_FLAG_INVALID);
 }
