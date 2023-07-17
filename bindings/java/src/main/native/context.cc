@@ -3,6 +3,7 @@
  * See file LICENSE for terms.
  */
 
+#include <sys/epoll.h>
 #include "jucx_common_def.h"
 #include "org_openucx_jucx_ucp_UcpContext.h"
 
@@ -213,4 +214,75 @@ Java_org_openucx_jucx_ucp_UcpContext_queryMemTypesNative(JNIEnv *env, jclass cls
     }
 
     return params.memory_types;
+}
+
+JNIEXPORT jint JNICALL
+Java_org_openucx_jucx_ucp_UcpContext_addToAggregatedFdNative(JNIEnv *env, jobject obj, jint fd)
+{
+    jclass cls = env->GetObjectClass(obj);
+    jfieldID field = env->GetFieldID(cls, "epollfd", "I");
+
+    int efd = env->GetIntField(obj, field);
+    if (efd == -1) {
+        JNU_ThrowException(env, "invalid epoll fd");
+    }
+
+    epoll_event ev;
+    ev.events = EPOLLIN;
+    ev.data.fd = fd;
+
+    return epoll_ctl(efd, EPOLL_CTL_ADD, fd, &ev);
+}
+
+JNIEXPORT jint JNICALL
+Java_org_openucx_jucx_ucp_UcpContext_waitAggregatedFdNative(JNIEnv *env, jobject obj)
+{
+    jclass cls = env->GetObjectClass(obj);
+    jfieldID field = env->GetFieldID(cls, "epollfd", "I");
+
+    int efd = env->GetIntField(obj, field);
+    if (efd == -1) {
+        JNU_ThrowException(env, "invalid epoll fd");
+    }
+
+    epoll_event ev;
+    int ret;
+    do {
+         ret = epoll_wait(efd, &ev, 1, -1);
+    } while ((ret == -1) && (errno == EINTR || errno == EAGAIN));
+
+    return ev.data.fd;
+}
+
+JNIEXPORT void JNICALL
+Java_org_openucx_jucx_ucp_UcpContext_closeAggregatedFdNative(JNIEnv *env, jobject obj)
+{
+    jclass cls = env->GetObjectClass(obj);
+    jfieldID field = env->GetFieldID(cls, "epollfd", "I");
+
+    int efd = env->GetIntField(obj, field);
+    if (efd == -1) {
+        return;
+    }
+
+    close(efd);
+    env->SetIntField(cls, field, -1);
+}
+
+JNIEXPORT void JNICALL
+Java_org_openucx_jucx_ucp_UcpContext_initAggregatedFdNative(JNIEnv *env, jobject obj, jint size)
+{
+    jclass cls = env->GetObjectClass(obj);
+    jfieldID field = env->GetFieldID(cls, "epollfd", "I");
+
+    int efd = env->GetIntField(obj, field);
+    if (efd != -1) {
+        return;
+    }
+
+    efd = epoll_create(size);
+    if (efd < 0) {
+        JNU_ThrowException(env, "epoll_create failed");
+    }
+    env->SetIntField(obj, field, efd);
 }

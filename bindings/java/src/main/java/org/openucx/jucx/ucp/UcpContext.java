@@ -44,6 +44,22 @@ public class UcpContext extends UcxNativeStruct implements Closeable {
         this.setNativeId(null);
     }
 
+    public void initAggregatedFd(int size) {
+        initAggregatedFdNative(size);
+    }
+
+    public void closeAggregatedFd() {
+        closeAggregatedFdNative();
+    }
+
+    public int waitAggregatedFd() {
+        return waitAggregatedFdNative();
+    }
+
+    public boolean addToAggregatedFd(int fd) {
+        return addToAggregatedFdNative(fd) == 0;
+    }
+
     /**
      * @return - mask which memory types are supported, for supported memory types
      * please see {@link org.openucx.jucx.ucs.UcsConstants.MEMORY_TYPE#isMemTypeSupported}
@@ -97,6 +113,8 @@ public class UcpContext extends UcxNativeStruct implements Closeable {
         return memoryMapNative(getNativeId(), params);
     }
 
+    private int epollfd = -1;
+
     private static native long createContextNative(UcpParams params);
 
     private static native long queryMemTypesNative(long contextId);
@@ -104,4 +122,9 @@ public class UcpContext extends UcxNativeStruct implements Closeable {
     private static native void cleanupContextNative(long contextId);
 
     private native UcpMemory memoryMapNative(long conetxtId, UcpMemMapParams params);
+
+    private native void initAggregatedFdNative(int size);
+    private native void closeAggregatedFdNative();
+    private native int waitAggregatedFdNative();
+    private native int addToAggregatedFdNative(int fd);
 }
