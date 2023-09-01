@@ -27,6 +27,7 @@ JUCX_GENERATED_H_FILES = org_openucx_jucx_ucp_UcpConnectionRequest.h     \
                          org_openucx_jucx_ucp_UcpWorker.h                \
                          org_openucx_jucx_ucs_UcsConstants_ThreadMode.h  \
                          org_openucx_jucx_ucs_UcsConstants.h             \
+						 org_openucx_jucx_Epoll.h					     \
                          org_openucx_jucx_UcxUtils.h
 
 BUILT_SOURCES = $(JUCX_GENERATED_H_FILES)
@@ -66,6 +67,7 @@ libjucx_la_SOURCES = context.cc \
                      memory.cc \
                      ucp_constants.cc \
                      ucs_constants.cc \
+					 org_openucx_jucx_Epoll.cc \
                      worker.cc
 
 libjucx_la_CXXFLAGS = $(BASE_CXXFLAGS) -std=gnu++98
