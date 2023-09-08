@@ -25,6 +25,7 @@
 #include <ucs/time/time.h>
 #include <ucs/arch/cpu.h>
 #include <ucs/vfs/base/vfs_obj.h>
+#include <ucs/profile/profile.h>
 
 
 #define UCT_MD_ATTR_V2_FIELD_COPY(_md_attr_dst, _md_attr_src, _field_name, \
@@ -125,7 +126,7 @@ ucs_status_t uct_md_query_tl_resources(uct_md_h md,
     num_resources = 0;
 
     ucs_list_for_each(tl, &component->tl_list, list) {
-        status = tl->query_devices(md, &tl_devices, &num_tl_devices);
+        status = UCS_PROFILE_NAMED_CALL("query_tl_devices", tl->query_devices, md, &tl_devices, &num_tl_devices);
         if (status != UCS_OK) {
             ucs_debug("failed to query %s resources: %s", tl->name,
                       ucs_status_string(status));

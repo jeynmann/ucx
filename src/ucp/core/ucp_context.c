@@ -23,6 +23,7 @@
 #include <ucs/sys/string.h>
 #include <ucs/vfs/base/vfs_cb.h>
 #include <ucs/vfs/base/vfs_obj.h>
+#include <ucs/profile/profile.h>
 #include <string.h>
 #include <dlfcn.h>
 
@@ -1471,7 +1472,7 @@ ucp_add_component_resources(ucp_context_h context, ucp_rsc_index_t cmpt_index,
     uct_component_attr.md_resources =
                     ucs_alloca(tl_cmpt->attr.md_resource_count *
                                sizeof(*uct_component_attr.md_resources));
-    status = uct_component_query(tl_cmpt->cmpt, &uct_component_attr);
+    status = UCS_PROFILE_CALL_ALWAYS(uct_component_query, tl_cmpt->cmpt, &uct_component_attr);
     if (status != UCS_OK) {
         goto out;
     }
@@ -1490,7 +1491,7 @@ ucp_add_component_resources(ucp_context_h context, ucp_rsc_index_t cmpt_index,
         }
 
         /* Add communication resources of each MD */
-        status = ucp_add_tl_resources(context, md_index, config, aux_tls,
+        status = UCS_PROFILE_CALL_ALWAYS(ucp_add_tl_resources, context, md_index, config, aux_tls,
                                       &num_tl_resources, avail_devices,
                                       avail_tls, dev_cfg_masks, tl_cfg_mask);
         if (status != UCS_OK) {
@@ -2121,9 +2122,15 @@ ucp_version_check(unsigned api_major_version, unsigned api_minor_version)
     }
 }
 
-ucs_status_t ucp_init_version(unsigned api_major_version, unsigned api_minor_version,
-                              const ucp_params_t *params, const ucp_config_t *config,
-                              ucp_context_h *context_p)
+// ucs_status_t ucp_init_version(unsigned api_major_version, unsigned api_minor_version,
+//                               const ucp_params_t *params, const ucp_config_t *config,
+//                               ucp_context_h *context_p)
+UCS_PROFILE_FUNC_ALWAYS(
+    ucs_status_t, ucp_init_version,
+    (api_major_version, api_minor_version, params, config, context_p),
+    unsigned api_major_version, unsigned api_minor_version,
+    const ucp_params_t *params, const ucp_config_t *config,
+    ucp_context_h *context_p)
 {
     ucp_config_t *dfl_config = NULL;
     ucp_context_t *context;

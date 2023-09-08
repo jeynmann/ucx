@@ -32,6 +32,7 @@
 #include <ucs/arch/atomic.h>
 #include <ucs/vfs/base/vfs_cb.h>
 #include <ucs/vfs/base/vfs_obj.h>
+#include <ucs/profile/profile.h>
 #include <sys/poll.h>
 #include <sys/eventfd.h>
 #include <sys/epoll.h>
@@ -1388,7 +1389,7 @@ ucs_status_t ucp_worker_iface_open(ucp_worker_h worker, ucp_rsc_index_t tl_id,
     iface_params.features    = ucp_worker_get_uct_features(context);
 
     /* Open UCT interface */
-    status = uct_iface_open(md, worker->uct, &iface_params, iface_config,
+    status = UCS_PROFILE_CALL_ALWAYS(uct_iface_open, md, worker->uct, &iface_params, iface_config,
                             &wiface->iface);
     uct_config_release(iface_config);
 
@@ -1398,7 +1399,7 @@ ucs_status_t ucp_worker_iface_open(ucp_worker_h worker, ucp_rsc_index_t tl_id,
 
     VALGRIND_MAKE_MEM_UNDEFINED(&wiface->attr, sizeof(wiface->attr));
 
-    status = uct_iface_query(wiface->iface, &wiface->attr);
+    status = UCS_PROFILE_CALL_ALWAYS(uct_iface_query, wiface->iface, &wiface->attr);
     if (status != UCS_OK) {
         goto err_close_iface;
     }
@@ -2324,9 +2325,14 @@ void ucp_worker_create_vfs(ucp_context_h context, ucp_worker_h worker)
                             "counters/ep_failures");
 }
 
-ucs_status_t ucp_worker_create(ucp_context_h context,
-                               const ucp_worker_params_t *params,
-                               ucp_worker_h *worker_p)
+// ucs_status_t ucp_worker_create(ucp_context_h context,
+//                                const ucp_worker_params_t *params,
+//                                ucp_worker_h *worker_p)
+UCS_PROFILE_FUNC_ALWAYS(
+    ucs_status_t, ucp_worker_create,
+    (context, params, worker_p),
+    ucp_context_h context, const ucp_worker_params_t *params,
+    ucp_worker_h *worker_p)
 {
     ucs_thread_mode_t thread_mode, uct_thread_mode;
     unsigned name_length;

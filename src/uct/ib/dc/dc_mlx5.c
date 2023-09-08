@@ -1571,13 +1571,13 @@ static UCS_CLASS_INIT_FUNC(uct_dc_mlx5_iface_t, uct_md_h tl_md, uct_worker_h wor
     ucs_assert(self->tx.num_dci_pools <= UCT_DC_MLX5_IFACE_MAX_DCI_POOLS);
 
     /* create DC target */
-    status = uct_dc_mlx5_iface_create_dct(self, config);
+    status = UCS_PROFILE_CALL_ALWAYS(uct_dc_mlx5_iface_create_dct, self, config);
     if (status != UCS_OK) {
         goto err;
     }
 
     /* create DC initiators */
-    status = uct_dc_mlx5_iface_dcis_create(self, config);
+    status = UCS_PROFILE_CALL_ALWAYS(uct_dc_mlx5_iface_dcis_create, self, config);
     if (status != UCS_OK) {
         goto err_destroy_dct;
     }
@@ -1602,7 +1602,7 @@ static UCS_CLASS_INIT_FUNC(uct_dc_mlx5_iface_t, uct_md_h tl_md, uct_worker_h wor
 
     uct_dc_mlx5_iface_set_quota(self, config);
 
-    uct_rc_mlx5_iface_common_prepost_recvs(&self->super);
+    UCS_PROFILE_CALL_VOID_ALWAYS(uct_rc_mlx5_iface_common_prepost_recvs, &self->super);
 
     ucs_debug("created dc iface %p", self);
 

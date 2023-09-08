@@ -1259,7 +1259,7 @@ ucs_status_t uct_ib_md_open(uct_component_t *component, const char *md_name,
 #endif
 
     /* Get device list from driver */
-    ib_device_list = ibv_get_device_list(&num_devices);
+    ib_device_list = UCS_PROFILE_CALL_ALWAYS(ibv_get_device_list, &num_devices);
     if (ib_device_list == NULL) {
         ucs_debug("Failed to get IB device list, assuming no devices are present");
         status = UCS_ERR_NO_DEVICE;
@@ -1281,7 +1281,7 @@ ucs_status_t uct_ib_md_open(uct_component_t *component, const char *md_name,
     }
 
     if (md_config->fork_init != UCS_NO) {
-        ret = ibv_fork_init();
+        ret = UCS_PROFILE_CALL_ALWAYS(ibv_fork_init);
         if (ret) {
             if (md_config->fork_init == UCS_YES) {
                 ucs_error("ibv_fork_init() failed: %m");
@@ -1298,7 +1298,7 @@ ucs_status_t uct_ib_md_open(uct_component_t *component, const char *md_name,
     }
 
     for (i = 0; i < ucs_static_array_size(uct_ib_ops); i++) {
-        status = uct_ib_ops[i]->ops->open(ib_device, md_config, &md);
+        status = UCS_PROFILE_NAMED_CALL_ALWAYS("open_device", uct_ib_ops[i]->ops->open, ib_device, md_config, &md);
         if (status == UCS_OK) {
             ucs_debug("%s: md open by '%s' is successful", md_name,
                       uct_ib_ops[i]->name);

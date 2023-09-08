@@ -18,6 +18,7 @@
 #include <ucs/type/class.h>
 #include <ucs/vfs/base/vfs_cb.h>
 #include <ucs/vfs/base/vfs_obj.h>
+#include <ucs/profile/profile.h>
 
 
 static const char *uct_rc_fence_mode_values[] = {
@@ -701,7 +702,7 @@ UCS_CLASS_INIT_FUNC(uct_rc_iface_t, uct_iface_ops_t *tl_ops,
     }
 
     /* Initialize RX resources (SRQ) */
-    status = ops->init_rx(self, config);
+    status = UCS_PROFILE_NAMED_CALL_ALWAYS("iface_init_srq", ops->init_rx, self, config);
     if (status != UCS_OK) {
         goto err_destroy_stats;
     }

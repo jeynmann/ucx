@@ -1385,7 +1385,8 @@ UCS_CLASS_INIT_FUNC(uct_ib_iface_t, uct_iface_ops_t *tl_ops,
         goto err;
     }
 
-    self->comp_channel = ibv_create_comp_channel(dev->ibv_context);
+    self->comp_channel = UCS_PROFILE_NAMED_CALL_ALWAYS("ibv_create_comp_channel",
+        ibv_create_comp_channel, dev->ibv_context);
     if (self->comp_channel == NULL) {
         ucs_error("ibv_create_comp_channel() failed: %m");
         status = UCS_ERR_IO_ERROR;
@@ -1403,13 +1404,15 @@ UCS_CLASS_INIT_FUNC(uct_ib_iface_t, uct_iface_ops_t *tl_ops,
         goto err_destroy_comp_channel;
     }
 
-    status = self->ops->create_cq(self, UCT_IB_DIR_TX, init_attr,
+    status = UCS_PROFILE_NAMED_CALL_ALWAYS("create_cq[T]",
+        self->ops->create_cq, self, UCT_IB_DIR_TX, init_attr,
                                   preferred_cpu, config->inl[UCT_IB_DIR_TX]);
     if (status != UCS_OK) {
         goto err_destroy_stats;
     }
 
-    status = self->ops->create_cq(self, UCT_IB_DIR_RX, init_attr,
+    status = UCS_PROFILE_NAMED_CALL_ALWAYS("create_cq[R]",
+        self->ops->create_cq, self, UCT_IB_DIR_RX, init_attr,
                                   preferred_cpu, config->inl[UCT_IB_DIR_RX]);
     if (status != UCS_OK) {
         goto err_destroy_send_cq;
