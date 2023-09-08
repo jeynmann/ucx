@@ -21,6 +21,7 @@
 #include <ucs/vfs/base/vfs_obj.h>
 #include <ucs/vfs/base/vfs_cb.h>
 #include <sys/poll.h>
+#include <ucs/profile/profile.h>
 
 
 #define UCT_UD_IFACE_CEP_CONN_SN_MAX ((uct_ud_ep_conn_sn_t)-1)
@@ -365,6 +366,7 @@ static ucs_status_t uct_ud_iface_gid_hash_init(uct_ud_iface_t *iface,
     kh_init_inplace(uct_ud_iface_gid, &iface->gid_table.hash);
 
     gid_tbl_len = uct_ib_device_port_attr(dev, port)->gid_tbl_len;
+    UCS_PROFILE_CTX_CODE_ALWAYS(ucs_profile_default_ctx, "uct_ib_device_query_gid_info" , {
     for (gid_idx = 0; gid_idx < gid_tbl_len; ++gid_idx) {
         status = uct_ib_device_query_gid_info(dev->ibv_context,
                                               uct_ib_device_name(dev),
@@ -390,6 +392,7 @@ static ucs_status_t uct_ud_iface_gid_hash_init(uct_ud_iface_t *iface,
             goto err;
         }
     }
+    })
 
     iface->gid_table.last     = zero_gid;
     iface->gid_table.last_len = sizeof(zero_gid);
@@ -510,7 +513,7 @@ UCS_CLASS_INIT_FUNC(uct_ud_iface_t, uct_ud_iface_ops_t *ops,
 
     ucs_ptr_array_init(&self->eps, "ud_eps");
 
-    status = uct_ud_iface_create_qp(self, config);
+    status = UCS_PROFILE_CALL_ALWAYS(uct_ud_iface_create_qp, self, config);
     if (status != UCS_OK) {
         goto err_eps_array;
     }

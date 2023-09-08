@@ -1404,14 +1404,14 @@ UCS_CLASS_INIT_FUNC(uct_ib_iface_t, uct_iface_ops_t *tl_ops,
         goto err_destroy_comp_channel;
     }
 
-    status = UCS_PROFILE_NAMED_CALL_ALWAYS("create_cq[T]",
+    status = UCS_PROFILE_NAMED_CALL_ALWAYS("create_cq:TX",
         self->ops->create_cq, self, UCT_IB_DIR_TX, init_attr,
                                   preferred_cpu, config->inl[UCT_IB_DIR_TX]);
     if (status != UCS_OK) {
         goto err_destroy_stats;
     }
 
-    status = UCS_PROFILE_NAMED_CALL_ALWAYS("create_cq[R]",
+    status = UCS_PROFILE_NAMED_CALL_ALWAYS("create_cq:RX",
         self->ops->create_cq, self, UCT_IB_DIR_RX, init_attr,
                                   preferred_cpu, config->inl[UCT_IB_DIR_RX]);
     if (status != UCS_OK) {

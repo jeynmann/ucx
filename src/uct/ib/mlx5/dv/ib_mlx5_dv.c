@@ -10,6 +10,7 @@
 
 #include <uct/ib/mlx5/ib_mlx5.inl>
 #include <ucs/arch/bitops.h>
+#include <ucs/profile/profile.h>
 
 #if HAVE_DECL_MLX5DV_INIT_OBJ
 ucs_status_t uct_ib_mlx5dv_init_obj(uct_ib_mlx5dv_t *obj, uint64_t type)
@@ -170,7 +171,8 @@ ucs_status_t uct_ib_mlx5_devx_create_qp(uct_ib_iface_t *iface,
     len    = len_tx + max_rx * UCT_IB_MLX5_MAX_BB * UCT_IB_MLX5_WQE_SEG_SIZE;
 
     if (tx != NULL) {
-        status = uct_ib_mlx5_md_buf_alloc(md, len, 0, &qp->devx.wq_buf,
+        status = UCS_PROFILE_NAMED_CALL_ALWAYS("devx_alloc_umem",
+                uct_ib_mlx5_md_buf_alloc, md, len, 0, &qp->devx.wq_buf,
                                           &qp->devx.mem, 0, "qp umem");
         if (status != UCS_OK) {
             goto err_uar;
@@ -233,7 +235,8 @@ ucs_status_t uct_ib_mlx5_devx_create_qp(uct_ib_iface_t *iface,
                           UCT_IB_MLX5_DEVX_ECE_TRIG_RESP);
     }
 
-    qp->devx.obj = uct_ib_mlx5_devx_obj_create(dev->ibv_context, in,
+    qp->devx.obj = UCS_PROFILE_NAMED_CALL_ALWAYS("devx_create_qp",
+                  uct_ib_mlx5_devx_obj_create, dev->ibv_context, in,
                                                sizeof(in), out, sizeof(out),
                                                "QP", UCS_LOG_LEVEL_ERROR);
     if (!qp->devx.obj) {
@@ -257,7 +260,8 @@ ucs_status_t uct_ib_mlx5_devx_create_qp(uct_ib_iface_t *iface,
                           uct_ib_mlx5_iface_get_counter_set_id(iface));
         UCT_IB_MLX5DV_SET(qpc, qpc, rwe, true);
 
-        status = uct_ib_mlx5_devx_obj_modify(qp->devx.obj, in_2init,
+        status = UCS_PROFILE_NAMED_CALL_ALWAYS("devx_modify_qp:=>INIT",
+                uct_ib_mlx5_devx_obj_modify, qp->devx.obj, in_2init,
                                              sizeof(in_2init), out_2init,
                                              sizeof(out_2init), "2INIT_QP");
         if (status != UCS_OK) {

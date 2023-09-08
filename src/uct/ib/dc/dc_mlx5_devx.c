@@ -13,6 +13,7 @@
 #include <uct/api/uct.h>
 #include <uct/ib/mlx5/dv/ib_mlx5_ifc.h>
 #include <ucs/arch/bitops.h>
+#include <ucs/profile/profile.h>
 
 
 ucs_status_t uct_dc_mlx5_iface_devx_create_dct(uct_dc_mlx5_iface_t *iface)
@@ -114,7 +115,8 @@ ucs_status_t uct_dc_mlx5_iface_devx_dci_connect(uct_dc_mlx5_iface_t *iface,
     UCT_IB_MLX5DV_SET(qpc, qpc, counter_set_id,
                       uct_ib_mlx5_iface_get_counter_set_id(&rc_iface->super));
 
-    status = uct_ib_mlx5_devx_modify_qp(qp, in_2init, sizeof(in_2init),
+    status = UCS_PROFILE_NAMED_CALL_ALWAYS("devx_modify_qp:=>INIT",
+        uct_ib_mlx5_devx_modify_qp, qp, in_2init, sizeof(in_2init),
                                         out_2init, sizeof(out_2init));
     if (status != UCS_OK) {
         return status;
@@ -146,7 +148,8 @@ ucs_status_t uct_dc_mlx5_iface_devx_dci_connect(uct_dc_mlx5_iface_t *iface,
     }
 
     UCT_IB_MLX5DV_SET(init2rtr_qp_in, in_2rtr, opt_param_mask, opt_param_mask);
-    status = uct_ib_mlx5_devx_modify_qp(qp, in_2rtr, sizeof(in_2rtr),
+    status = UCS_PROFILE_NAMED_CALL_ALWAYS("devx_modify_qp:=>RTR",
+        uct_ib_mlx5_devx_modify_qp, qp, in_2rtr, sizeof(in_2rtr),
                                         out_2rtr, sizeof(out_2rtr));
     if (status != UCS_OK) {
         return status;
@@ -169,7 +172,8 @@ ucs_status_t uct_dc_mlx5_iface_devx_dci_connect(uct_dc_mlx5_iface_t *iface,
     UCT_IB_MLX5DV_SET(qpc, qpc, log_ack_req_freq,
                       iface->super.config.log_ack_req_freq);
 
-    return uct_ib_mlx5_devx_modify_qp(qp, in_2rts, sizeof(in_2rts),
+    return UCS_PROFILE_NAMED_CALL_ALWAYS("devx_modify_qp:=>RTS",
+        uct_ib_mlx5_devx_modify_qp, qp, in_2rts, sizeof(in_2rts),
                                       out_2rts, sizeof(out_2rts));
 }
 

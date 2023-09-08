@@ -1281,7 +1281,7 @@ ucs_status_t uct_ib_md_open(uct_component_t *component, const char *md_name,
     }
 
     if (md_config->fork_init != UCS_NO) {
-        ret = UCS_PROFILE_CALL_ALWAYS(ibv_fork_init);
+        ret = UCS_PROFILE_CALL(ibv_fork_init);
         if (ret) {
             if (md_config->fork_init == UCS_YES) {
                 ucs_error("ibv_fork_init() failed: %m");

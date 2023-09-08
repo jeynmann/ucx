@@ -854,7 +854,7 @@ uct_ib_mlx5_devx_open_device(struct ibv_device *ibv_device)
     struct ibv_cq *cq;
 
     dv_attr.flags |= MLX5DV_CONTEXT_FLAGS_DEVX;
-    ctx = mlx5dv_open_device(ibv_device, &dv_attr);
+    ctx = UCS_PROFILE_CALL_ALWAYS(mlx5dv_open_device, ibv_device, &dv_attr);
     if (ctx == NULL) {
         ucs_debug("mlx5dv_open_device(%s) failed: %m",
                   ibv_get_device_name(ibv_device));

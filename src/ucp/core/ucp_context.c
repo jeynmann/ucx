@@ -1472,7 +1472,7 @@ ucp_add_component_resources(ucp_context_h context, ucp_rsc_index_t cmpt_index,
     uct_component_attr.md_resources =
                     ucs_alloca(tl_cmpt->attr.md_resource_count *
                                sizeof(*uct_component_attr.md_resources));
-    status = UCS_PROFILE_CALL_ALWAYS(uct_component_query, tl_cmpt->cmpt, &uct_component_attr);
+    status = UCS_PROFILE_CALL(uct_component_query, tl_cmpt->cmpt, &uct_component_attr);
     if (status != UCS_OK) {
         goto out;
     }

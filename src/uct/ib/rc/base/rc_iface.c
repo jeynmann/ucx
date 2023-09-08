@@ -702,7 +702,7 @@ UCS_CLASS_INIT_FUNC(uct_rc_iface_t, uct_iface_ops_t *tl_ops,
     }
 
     /* Initialize RX resources (SRQ) */
-    status = UCS_PROFILE_NAMED_CALL_ALWAYS("iface_init_srq", ops->init_rx, self, config);
+    status = UCS_PROFILE_NAMED_CALL("iface_init_srq", ops->init_rx, self, config);
     if (status != UCS_OK) {
         goto err_destroy_stats;
     }
