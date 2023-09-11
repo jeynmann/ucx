@@ -15,6 +15,7 @@
 #include <uct/ib/mlx5/dv/ib_mlx5_ifc.h>
 #include <ucs/arch/cpu.h>
 #include <ucs/debug/log.h>
+#include <ucs/profile/profile.h>
 #include <ucs/type/status.h>
 
 /**
@@ -864,7 +865,7 @@ uct_ib_mlx5_md_buf_alloc(uct_ib_mlx5_md_t *md, size_t size, int silent,
     }
 
     mem->size = size;
-    mem->mem  = mlx5dv_devx_umem_reg(md->super.dev.ibv_context, buf, size,
+    mem->mem  = UCS_PROFILE_CALL_ALWAYS(mlx5dv_devx_umem_reg, md->super.dev.ibv_context, buf, size,
                                      access_mode);
     if (mem->mem == NULL) {
         uct_ib_check_memlock_limit_msg(level, "mlx5dv_devx_umem_reg()");

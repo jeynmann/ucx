@@ -1092,7 +1092,7 @@ ucp_add_tl_resources(ucp_context_h context, ucp_md_index_t md_index,
     *num_resources_p = 0;
 
     /* check what are the available uct resources */
-    status = uct_md_query_tl_resources(md->md, &tl_resources, &num_tl_resources);
+    status = UCS_PROFILE_CALL_ALWAYS(uct_md_query_tl_resources, md->md, &tl_resources, &num_tl_resources);
     if (status != UCS_OK) {
         ucs_error("Failed to query resources: %s", ucs_status_string(status));
         goto out;
@@ -1491,7 +1491,7 @@ ucp_add_component_resources(ucp_context_h context, ucp_rsc_index_t cmpt_index,
         }
 
         /* Add communication resources of each MD */
-        status = UCS_PROFILE_CALL_ALWAYS(ucp_add_tl_resources, context, md_index, config, aux_tls,
+        status = ucp_add_tl_resources(context, md_index, config, aux_tls,
                                       &num_tl_resources, avail_devices,
                                       avail_tls, dev_cfg_masks, tl_cfg_mask);
         if (status != UCS_OK) {

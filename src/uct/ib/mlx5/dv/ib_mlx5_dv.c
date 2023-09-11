@@ -59,7 +59,7 @@ uct_ib_mlx5dv_qp_tmp_objs_create(uct_ib_device_t *dev, struct ibv_pd *pd,
     ucs_log_level_t level             = silent ? UCS_LOG_LEVEL_DEBUG :
                                                  UCS_LOG_LEVEL_ERROR;
 
-    qp_tmp_objs->cq = ibv_create_cq(dev->ibv_context, 1, NULL, NULL, 0);
+    qp_tmp_objs->cq = UCS_PROFILE_CALL_ALWAYS(ibv_create_cq, dev->ibv_context, 1, NULL, NULL, 0);
     if (qp_tmp_objs->cq == NULL) {
         uct_ib_check_memlock_limit_msg(level, "%s: ibv_create_cq()",
                                        uct_ib_device_name(dev));
@@ -68,7 +68,7 @@ uct_ib_mlx5dv_qp_tmp_objs_create(uct_ib_device_t *dev, struct ibv_pd *pd,
 
     srq_attr.attr.max_sge = 1;
     srq_attr.attr.max_wr  = 1;
-    qp_tmp_objs->srq      = ibv_create_srq(pd, &srq_attr);
+    qp_tmp_objs->srq      = UCS_PROFILE_CALL_ALWAYS(ibv_create_srq, pd, &srq_attr);
     if (qp_tmp_objs->srq == NULL) {
         uct_ib_check_memlock_limit_msg(level, "%s: ibv_create_srq()",
                                        uct_ib_device_name(dev));
@@ -85,8 +85,8 @@ out:
 
 void uct_ib_mlx5dv_qp_tmp_objs_destroy(uct_ib_mlx5dv_qp_tmp_objs_t *qp_tmp_objs)
 {
-    uct_ib_destroy_srq(qp_tmp_objs->srq);
-    ibv_destroy_cq(qp_tmp_objs->cq);
+    UCS_PROFILE_CALL_VOID_ALWAYS(uct_ib_destroy_srq, qp_tmp_objs->srq);
+    UCS_PROFILE_CALL_VOID_ALWAYS(ibv_destroy_cq, qp_tmp_objs->cq);
 }
 
 size_t uct_ib_mlx5dv_calc_tx_wqe_ratio(struct ibv_qp *qp, uint32_t max_send_wr,

@@ -823,7 +823,7 @@ UCS_CLASS_INIT_FUNC(uct_rc_mlx5_iface_common_t, uct_iface_ops_t *tl_ops,
         goto cleanup_stats;
     }
 
-    status = uct_rc_mlx5_iface_common_dm_init(self, &self->super,
+    status = UCS_PROFILE_CALL_ALWAYS(uct_rc_mlx5_iface_common_dm_init, self, &self->super,
                                               &mlx5_config->super);
     if (status != UCS_OK) {
         goto cleanup_tm;

@@ -19,6 +19,7 @@
 #include <ucs/sys/sys.h>
 #include <ucs/vfs/base/vfs_cb.h>
 #include <ucs/vfs/base/vfs_obj.h>
+#include <ucs/profile/profile.h>
 #include <string.h>
 
 
@@ -1104,7 +1105,8 @@ uint8_t uct_ib_mlx5_iface_get_counter_set_id(uct_ib_iface_t *iface)
         return iface->config.counter_set_id;
     }
 
-    return uct_ib_mlx5_devx_md_get_counter_set_id(uct_ib_mlx5_iface_md(iface),
+    return UCS_PROFILE_CALL_ALWAYS(
+          uct_ib_mlx5_devx_md_get_counter_set_id, uct_ib_mlx5_iface_md(iface),
                                                   iface->config.port_num);
 }
 

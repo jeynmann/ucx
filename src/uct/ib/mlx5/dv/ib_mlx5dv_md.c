@@ -1056,7 +1056,7 @@ static ucs_status_t uct_ib_mlx5_devx_md_open(struct ibv_device *ibv_device,
     UCT_IB_MLX5DV_SET(query_hca_cap_in, in, opcode, UCT_IB_MLX5_CMD_OP_QUERY_HCA_CAP);
     UCT_IB_MLX5DV_SET(query_hca_cap_in, in, op_mod, UCT_IB_MLX5_HCA_CAP_OPMOD_GET_CUR |
                                                    (UCT_IB_MLX5_CAP_GENERAL << 1));
-    ret = mlx5dv_devx_general_cmd(ctx, in, sizeof(in), out, sizeof(out));
+    ret = UCS_PROFILE_CALL_ALWAYS(mlx5dv_devx_general_cmd, ctx, in, sizeof(in), out, sizeof(out));
     if (ret != 0) {
         if ((errno == EPERM) || (errno == EPROTONOSUPPORT) ||
             (errno == EOPNOTSUPP)) {

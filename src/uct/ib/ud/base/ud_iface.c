@@ -213,7 +213,7 @@ uct_ud_iface_create_qp(uct_ud_iface_t *self, const uct_ud_iface_config_t *config
     qp_attr.pkey_index = self->super.pkey_index;
     qp_attr.port_num   = self->super.config.port_num;
     qp_attr.qkey       = UCT_IB_KEY;
-    ret = ibv_modify_qp(self->qp, &qp_attr,
+    ret = UCS_PROFILE_CALL_ALWAYS(ibv_modify_qp, self->qp, &qp_attr,
                         IBV_QP_STATE | IBV_QP_PKEY_INDEX | IBV_QP_PORT | IBV_QP_QKEY);
     if (ret) {
         ucs_error("Failed to modify UD QP to INIT: %m");
@@ -222,7 +222,7 @@ uct_ud_iface_create_qp(uct_ud_iface_t *self, const uct_ud_iface_config_t *config
 
     /* Modify to RTR */
     qp_attr.qp_state = IBV_QPS_RTR;
-    ret = ibv_modify_qp(self->qp, &qp_attr, IBV_QP_STATE);
+    ret = UCS_PROFILE_CALL_ALWAYS(ibv_modify_qp, self->qp, &qp_attr, IBV_QP_STATE);
     if (ret) {
         ucs_error("Failed to modify UD QP to RTR: %m");
         goto err_destroy_qp;
@@ -231,7 +231,7 @@ uct_ud_iface_create_qp(uct_ud_iface_t *self, const uct_ud_iface_config_t *config
     /* Modify to RTS */
     qp_attr.qp_state = IBV_QPS_RTS;
     qp_attr.sq_psn = 0;
-    ret = ibv_modify_qp(self->qp, &qp_attr, IBV_QP_STATE | IBV_QP_SQ_PSN);
+    ret = UCS_PROFILE_CALL_ALWAYS(ibv_modify_qp, self->qp, &qp_attr, IBV_QP_STATE | IBV_QP_SQ_PSN);
     if (ret) {
         ucs_error("Failed to modify UD QP to RTS: %m");
         goto err_destroy_qp;

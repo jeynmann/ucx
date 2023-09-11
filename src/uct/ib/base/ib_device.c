@@ -20,6 +20,7 @@
 #include <ucs/sys/string.h>
 #include <ucs/sys/sock.h>
 #include <ucs/sys/sys.h>
+#include <ucs/profile/profile.h>
 #include <sys/poll.h>
 #include <libgen.h>
 #include <sched.h>
@@ -499,7 +500,7 @@ ucs_status_t uct_ib_device_query(uct_ib_device_t *dev,
     uint8_t i;
     int ret;
 
-    status = uct_ib_query_device(dev->ibv_context, &dev->dev_attr);
+    status = UCS_PROFILE_CALL_ALWAYS(uct_ib_query_device, dev->ibv_context, &dev->dev_attr);
     if (status != UCS_OK) {
         return status;
     }
