@@ -484,6 +484,8 @@ ucs_status_t uct_ib_reg_mr(struct ibv_pd *pd, void *addr, size_t length,
         return UCS_ERR_UNSUPPORTED;
 #endif
     }
+    ucs_info("@D %s(pd=%p addr=%p len=%zu flag=%zu fd=%d offset=%zu): mr=%p",
+              title, pd, addr, length, access, dmabuf_fd, dmabuf_offset, mr);
     if (mr == NULL) {
         uct_ib_md_print_mem_reg_err_msg(title, addr, length, access, errno,
                                         silent);
@@ -802,8 +804,6 @@ ucs_status_t uct_ib_reg_key_impl(uct_ib_md_t *md, void *address, size_t length,
 {
     ucs_status_t status;
 
-    ucs_info("@D uct_ib_reg_mr pd=%p addr=%p len=%zu flag=%zu fd=%d offset=%lu silent=%d", 
-             md->pd, address, length, access_flags, dmabuf_fd, dmabuf_offset, silent);
     status = uct_ib_reg_mr(md->pd, address, length, access_flags, dmabuf_fd,
                            dmabuf_offset, &mr->ib, silent);
     if (status != UCS_OK) {
