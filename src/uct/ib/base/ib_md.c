@@ -463,6 +463,8 @@ uct_ib_md_reg_mr(uct_ib_md_t *md, void *address, size_t length,
                             dmabuf_offset, memh, mr_type, silent);
 }
 
+extern void ucs_debug_print_backtrace(FILE *stream, int strip);
+static pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
 ucs_status_t uct_ib_reg_mr(struct ibv_pd *pd, void *addr, size_t length,
                            uint64_t access, int dmabuf_fd, size_t dmabuf_offset,
                            struct ibv_mr **mr_p, int silent)
@@ -470,6 +472,7 @@ ucs_status_t uct_ib_reg_mr(struct ibv_pd *pd, void *addr, size_t length,
     ucs_time_t UCS_V_UNUSED start_time = ucs_get_time();
     const char *title;
     struct ibv_mr *mr;
+    double current_cost;
 
     if (dmabuf_fd == UCT_DMABUF_FD_INVALID) {
         title = "ibv_reg_mr";
@@ -484,20 +487,29 @@ ucs_status_t uct_ib_reg_mr(struct ibv_pd *pd, void *addr, size_t length,
         return UCS_ERR_UNSUPPORTED;
 #endif
     }
-    ucs_info("@D %s(pd=%p addr=%p len=%zu flag=%zu fd=%d offset=%zu): mr=%p",
-              title, pd, addr, length, access, dmabuf_fd, dmabuf_offset, mr);
+    current_cost = ucs_time_to_msec(ucs_get_time() - start_time);
     if (mr == NULL) {
         uct_ib_md_print_mem_reg_err_msg(title, addr, length, access, errno,
                                         silent);
+        ucs_info("@D %s(pd=%p addr=%p len=%zu flag=%zu fd=%d offset=%zu): mr=%p took %.3f ms",
+                 title, pd, addr, length, access, dmabuf_fd, dmabuf_offset, mr, current_cost);
         return UCS_ERR_IO_ERROR;
     }
 
     *mr_p = mr;
 
     /* to prevent clang dead code */
-    ucs_trace("%s(pd=%p addr=%p len=%zu fd=%d offset=%zu): mr=%p took %.3f ms",
-              title, pd, addr, length, dmabuf_fd, dmabuf_offset, mr,
-              ucs_time_to_msec(ucs_get_time() - start_time));
+    ucs_info("@D %s(pd=%p addr=%p len=%zu flag=%zu fd=%d offset=%zu): mr=%p took %.3f ms",
+              title, pd, addr, length, access, dmabuf_fd, dmabuf_offset, mr, current_cost);
+
+    if (ucs_unlikely(current_cost > 300.0)) {
+        pthread_mutex_lock(&lock);
+        ucs_debug_print_backtrace(stdout, 2);
+        pthread_mutex_unlock(&lock);
+    }
+    // ucs_trace("%s(pd=%p addr=%p len=%zu fd=%d offset=%zu): mr=%p took %.3f ms",
+    //           title, pd, addr, length, dmabuf_fd, dmabuf_offset, mr,
+    //           ucs_time_to_msec(ucs_get_time() - start_time));
     return UCS_OK;
 }
 

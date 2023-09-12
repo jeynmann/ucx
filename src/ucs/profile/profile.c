@@ -483,7 +483,7 @@ static void ucs_profile_thread_expand_locations(ucs_profile_context_t *ctx,
 
     thread_ctx->accum.num_locations = new_num_locations;
 }
-extern void ucs_debug_print_backtrace(FILE *stream, int strip);
+
 void ucs_profile_record(ucs_profile_context_t *ctx, ucs_profile_type_t type,
                         const char *name, uint32_t param32, uint64_t param64,
                         const char *file, int line, const char *function,
@@ -493,7 +493,7 @@ void ucs_profile_record(ucs_profile_context_t *ctx, ucs_profile_type_t type,
     ucs_profile_thread_context_t *thread_ctx;
     ucs_profile_loc_id_t loc_id;
     ucs_profile_record_t *rec;
-    ucs_time_t current_time, current_cost;
+    ucs_time_t current_time;
 
     /* If the location id is -1 or 0, need to re-read it with lock held */
     loc_id = *loc_id_p;
@@ -530,13 +530,8 @@ void ucs_profile_record(ucs_profile_context_t *ctx, ucs_profile_type_t type,
             thread_ctx->accum.stack[++thread_ctx->accum.stack_top] = current_time;
             break;
         case UCS_PROFILE_TYPE_SCOPE_END:
-            current_cost = current_time -
-                           thread_ctx->accum.stack[thread_ctx->accum.stack_top];
-            loc->total_time += current_cost;
-            if (ucs_unlikely(current_cost > 300000000L && strcmp(name, "ibv_reg_mr") == 0)) {
-                ucs_warn("@D ibv_reg_mr %zu ms", current_cost / 1000000L);
-                ucs_debug_print_backtrace(stderr, 2);
-            }
+            loc->total_time += current_time -
+                               thread_ctx->accum.stack[thread_ctx->accum.stack_top];
             --thread_ctx->accum.stack_top;
             break;
         default:
