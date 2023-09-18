@@ -299,7 +299,7 @@ allocated_without_md:
     mem->mem_type = UCS_MEMORY_TYPE_HOST;
     mem->memh     = UCT_MEM_HANDLE_NULL;
 allocated:
-    ucs_trace("allocated %zu bytes at %p using %s", alloc_length, address,
+    ucs_info("allocated %zu bytes at %p using %s", alloc_length, address,
               (mem->md == NULL) ? uct_alloc_method_names[*method]
                                 : mem->md->component->name);
     mem->address = address;
