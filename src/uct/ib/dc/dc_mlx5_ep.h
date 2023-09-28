@@ -499,6 +499,7 @@ uct_dc_mlx5_iface_dci_put(uct_dc_mlx5_iface_t *iface, uint8_t dci_index)
 }
 
 static int next_rand = 0;
+static int udp_sport[2];
 static inline void uct_dc_mlx5_iface_dci_alloc(uct_dc_mlx5_iface_t *iface, uct_dc_mlx5_ep_t *ep)
 {
     /* take a first available dci from stack.
@@ -507,7 +508,7 @@ static inline void uct_dc_mlx5_iface_dci_alloc(uct_dc_mlx5_iface_t *iface, uct_d
      */
     uint8_t pool_index           = uct_dc_mlx5_ep_pool_index(ep);
     uct_dc_mlx5_dci_pool_t *pool = &iface->tx.dci_pool[pool_index];
-    int rand_lid;
+    // int rand_lid
 
     ucs_assert(!uct_dc_mlx5_iface_is_dci_shared(iface));
     ucs_assert(pool->release_stack_top < pool->stack_top);
@@ -521,13 +522,19 @@ static inline void uct_dc_mlx5_iface_dci_alloc(uct_dc_mlx5_iface_t *iface, uct_d
         (void)uct_dc_mlx5_ep_qp_to_err(ep);
     }
 
-    ucs_rand_range(0, 4095, &rand_lid);
-    ep->av.rlid = htons(rand_lid | UCT_IB_ROCE_UDP_SRC_PORT_BASE);
-
     if (next_rand == 0) {
         next_rand = 1;
-        ucs_warn("<rand_rlid> ep->av.rlid=%d", (int)ep->av.rlid);
+        udp_sport[0] = iface->super.super.super.config.roce_path_sport1;
+        udp_sport[1] = iface->super.super.super.config.roce_path_sport2;
+        ucs_info("<sport> {%d,%d}",
+            iface->super.super.super.config.roce_path_sport1,
+            iface->super.super.super.config.roce_path_sport2);
     }
+    // mlx5dv_modify_qp_udp_sport(iface->rx.dct.verbs.qp, udp_sport[ep->dci & 1])
+    // ep->av.rlid = udp_sport[ep->dci & 1];
+    // ucs_rand_range(0, 4095, &rand_lid);
+    ep->av.rlid = htons((short)udp_sport[iface->tx.dcis[ep->dci].path_index & 1]);
+
     ucs_assertv(pool->stack_top > 0, "dci pool overflow, stack_top=%d",
                 (int)pool->stack_top);
     ucs_debug("iface %p: allocate dci %d for ep %p", iface, ep->dci, ep);

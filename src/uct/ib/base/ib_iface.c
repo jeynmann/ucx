@@ -177,6 +177,18 @@ ucs_config_field_t uct_ib_iface_config_table[] = {
    "path for the same pair of endpoints.",
    ucs_offsetof(uct_ib_iface_config_t, roce_path_factor), UCS_CONFIG_TYPE_UINT},
 
+  {"ROCE_PATH_SPORT1", "60000",
+   "Multiplier for RoCE LAG UDP source port calculation. The UDP source port\n"
+   "is typically used by switches and network adapters to select a different\n"
+   "path for the same pair of endpoints.",
+   ucs_offsetof(uct_ib_iface_config_t, roce_path_sport1), UCS_CONFIG_TYPE_UINT},
+
+  {"ROCE_PATH_SPORT2", "60000",
+   "Multiplier for RoCE LAG UDP source port calculation. The UDP source port\n"
+   "is typically used by switches and network adapters to select a different\n"
+   "path for the same pair of endpoints.",
+   ucs_offsetof(uct_ib_iface_config_t, roce_path_sport2), UCS_CONFIG_TYPE_UINT},
+
   {"LID_PATH_BITS", "0",
    "List of IB Path bits separated by comma (a,b,c) "
    "which will be the low portion of the LID, according to the LMC in the fabric.",
@@ -1334,6 +1346,8 @@ UCS_CLASS_INIT_FUNC(uct_ib_iface_t, uct_iface_ops_t *tl_ops,
                                       rx_headroom;
     self->config.seg_size           = init_attr->seg_size;
     self->config.roce_path_factor   = config->roce_path_factor;
+    self->config.roce_path_sport1   = config->roce_path_sport1;
+    self->config.roce_path_sport2   = config->roce_path_sport2;
     self->config.tx_max_poll        = config->tx.max_poll;
     self->config.rx_max_poll        = config->rx.max_poll;
     self->config.rx_max_batch       = ucs_min(config->rx.max_batch,

@@ -177,6 +177,8 @@ struct uct_ib_iface_config {
 
     /* Multiplier for RoCE LAG UDP source port calculation */
     unsigned                roce_path_factor;
+    unsigned                roce_path_sport1;
+    unsigned                roce_path_sport2;
 
     /* Ranges of path bits */
     UCS_CONFIG_ARRAY_FIELD(ucs_range_spec_t, ranges) lid_path_bits;
@@ -289,6 +291,8 @@ struct uct_ib_iface {
         unsigned              tx_max_poll;
         unsigned              seg_size;
         unsigned              roce_path_factor;
+        unsigned              roce_path_sport1;
+        unsigned              roce_path_sport2;
         uint8_t               max_inl_cqe[UCT_IB_DIR_LAST];
         uint8_t               port_num;
         uint8_t               sl;
