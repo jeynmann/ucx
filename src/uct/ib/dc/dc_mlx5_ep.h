@@ -74,6 +74,7 @@ struct uct_dc_mlx5_ep {
     uint8_t               atomic_mr_id;
     uint16_t              flags;
     uint16_t              flush_rkey_hi;
+    uint32_t              tx_size;
     uct_rc_fc_t           fc;
     uct_dc_mlx5_base_av_t av;
     uint8_t               dci_channel_index;
@@ -332,6 +333,8 @@ uct_dc_mlx5_ep_basic_init(uct_dc_mlx5_iface_t *iface, uct_dc_mlx5_ep_t *ep)
         ep->dci_channel_index = 0;
     }
 
+    ep->tx_size = 0;
+
     return uct_rc_fc_init(&ep->fc, &iface->super.super
                           UCS_STATS_ARG(ep->super.stats));
 }
@@ -507,7 +510,7 @@ static inline void uct_dc_mlx5_iface_dci_alloc(uct_dc_mlx5_iface_t *iface, uct_d
      */
     uint8_t pool_index           = uct_dc_mlx5_ep_pool_index(ep);
     uct_dc_mlx5_dci_pool_t *pool = &iface->tx.dci_pool[pool_index];
-    int rand_lid;
+    static int rand_lid;
 
     ucs_assert(!uct_dc_mlx5_iface_is_dci_shared(iface));
     ucs_assert(pool->release_stack_top < pool->stack_top);
@@ -522,6 +525,7 @@ static inline void uct_dc_mlx5_iface_dci_alloc(uct_dc_mlx5_iface_t *iface, uct_d
     }
 
     ucs_rand_range(0, 4095, &rand_lid);
+    // rand_lid += 1;
     rand_lid |= UCT_IB_ROCE_UDP_SRC_PORT_BASE;
     ep->av.rlid = htons((short)rand_lid);
 
@@ -616,8 +620,9 @@ uct_dc_mlx5_iface_dci_get(uct_dc_mlx5_iface_t *iface, uct_dc_mlx5_ep_t *ep)
         available = uct_rc_txqp_available(txqp);
         waitq     = uct_dc_mlx5_iface_dci_waitq(iface, pool_index);
         if ((iface->tx.policy == UCT_DC_TX_POLICY_DCS_QUOTA) &&
-            (available <= iface->tx.available_quota) &&
-            (1 || !ucs_arbiter_is_empty(waitq)))
+            // (available <= iface->tx.available_quota) &&
+            (ep->tx_size > iface->tx.size_quota) &&
+            (1 && !ucs_arbiter_is_empty(waitq)))
         {
             ep->flags |= UCT_DC_MLX5_EP_FLAG_TX_WAIT;
             goto out_no_res;
@@ -636,6 +641,7 @@ uct_dc_mlx5_iface_dci_get(uct_dc_mlx5_iface_t *iface, uct_dc_mlx5_ep_t *ep)
         ucs_assert(ucs_arbiter_is_empty(waitq));
 
         uct_dc_mlx5_iface_dci_alloc(iface, ep);
+        ep->tx_size = 0;
         return UCS_OK;
     }
 

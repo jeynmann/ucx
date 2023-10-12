@@ -186,6 +186,7 @@ typedef struct uct_dc_mlx5_iface_config {
     ucs_ternary_auto_value_t            dct_full_handshake;
     unsigned                            dct_affinity;
     unsigned                            quota;
+    unsigned                            tx_size_quota;
     unsigned                            rand_seed;
     ucs_time_t                          fc_hard_req_timeout;
     uct_ud_mlx5_iface_common_config_t   mlx5_ud;
@@ -289,6 +290,7 @@ struct uct_dc_mlx5_iface {
         uint8_t                   policy;                      /* dci selection algorithm */
         int16_t                   available_quota;             /* if available tx is lower, let
                                                                   another endpoint use the dci */
+        unsigned                  size_quota;
         /* DCI max elements */
         unsigned                  bb_max;
 

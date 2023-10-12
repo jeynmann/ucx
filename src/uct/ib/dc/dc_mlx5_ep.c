@@ -59,6 +59,7 @@ uct_dc_mlx5_iface_bcopy_post(uct_dc_mlx5_iface_t *iface, uct_dc_mlx5_ep_t *ep,
                                        MLX5_WQE_CTRL_CQ_UPDATE | send_flags,
                                        ep->dci_channel_index, imm_val_be, desc,
                                        buffer, log_sge);
+    ep->tx_size += length;
 }
 
 static UCS_F_ALWAYS_INLINE void
@@ -92,6 +93,7 @@ uct_dc_mlx5_iface_zcopy_post(uct_dc_mlx5_iface_t *iface, uct_dc_mlx5_ep_t *ep,
     uct_rc_txqp_add_send_comp(&iface->super.super, txqp, handler, comp, sn,
                               op_flags | UCT_RC_IFACE_SEND_OP_FLAG_ZCOPY, iov,
                               iovcnt, iov_total_length);
+    ep->tx_size += iov_total_length;
 }
 
 static UCS_F_ALWAYS_INLINE void
@@ -123,6 +125,7 @@ uct_dc_mlx5_iface_atomic_post(uct_dc_mlx5_iface_t *iface, uct_dc_mlx5_ep_t *ep,
     uct_dc_mlx5_add_flush_remote(ep);
     UCT_TL_EP_STAT_ATOMIC(&ep->super);
     uct_rc_txqp_add_send_op(txqp, &desc->super);
+    ep->tx_size += length;
 }
 
 static ucs_status_t UCS_F_ALWAYS_INLINE
@@ -286,6 +289,7 @@ uct_dc_mlx5_ep_am_short_inline(uct_ep_h tl_ep, uint8_t id, uint64_t hdr,
 
     UCT_RC_UPDATE_FC_WND(&ep->fc);
     UCT_TL_EP_STAT_OP(&ep->super, AM, SHORT, sizeof(hdr) + length);
+    ep->tx_size += length;
     return UCS_OK;
 }
 
@@ -311,6 +315,7 @@ static ucs_status_t UCS_F_ALWAYS_INLINE uct_dc_mlx5_ep_am_short_iov_inline(
     UCT_RC_UPDATE_FC_WND(&ep->fc);
     UCT_TL_EP_STAT_OP(&ep->super, AM, SHORT, iov_length);
 
+    ep->tx_size += iov_length;
     return UCS_OK;
 }
 
@@ -354,6 +359,7 @@ ucs_status_t uct_dc_mlx5_ep_am_short(uct_ep_h tl_ep, uint8_t id, uint64_t hdr,
     }
     UCT_TL_EP_STAT_OP(&ep->super, AM, SHORT, sizeof(cache.am_hdr) + length);
     UCT_RC_UPDATE_FC_WND(&ep->fc);
+    ep->tx_size += length;
     return UCS_OK;
 #endif
 }
@@ -394,6 +400,7 @@ ucs_status_t uct_dc_mlx5_ep_am_short_iov(uct_ep_h tl_ep, uint8_t id,
 
     UCT_RC_UPDATE_FC_WND(&ep->fc);
 
+    ep->tx_size += iov_length;
     return UCS_OK;
 #endif
 }
@@ -476,6 +483,7 @@ uct_dc_mlx5_ep_put_short_inline(uct_ep_h tl_ep, const void *buffer,
     uct_dc_mlx5_add_flush_remote(ep);
     UCT_TL_EP_STAT_OP(&ep->super, PUT, SHORT, length);
 
+    ep->tx_size += length;
     return UCS_OK;
 }
 
@@ -517,6 +525,7 @@ ucs_status_t uct_dc_mlx5_ep_put_short(uct_ep_h tl_ep, const void *payload,
 
     uct_dc_mlx5_add_flush_remote(ep);
     UCT_TL_EP_STAT_OP(&ep->super, PUT, SHORT, length);
+    ep->tx_size += length;
     return UCS_OK;
 #endif
 }
@@ -541,6 +550,7 @@ ssize_t uct_dc_mlx5_ep_put_bcopy(uct_ep_h tl_ep, uct_pack_callback_t pack_cb,
                                  remote_addr, rkey, desc, 0, 0, desc + 1, NULL);
     uct_dc_mlx5_add_flush_remote(ep);
     UCT_TL_EP_STAT_OP(&ep->super, PUT, BCOPY, length);
+    ep->tx_size += length;
     return length;
 }
 
@@ -551,11 +561,12 @@ ucs_status_t uct_dc_mlx5_ep_put_zcopy(uct_ep_h tl_ep, const uct_iov_t *iov, size
     uct_dc_mlx5_iface_t *iface = ucs_derived_of(tl_ep->iface, uct_dc_mlx5_iface_t);
     uct_dc_mlx5_ep_t *ep       = ucs_derived_of(tl_ep, uct_dc_mlx5_ep_t);
     uint16_t atomic_mr_offset  = uct_ib_md_atomic_offset(ep->atomic_mr_id);
+    size_t length = uct_iov_total_length(iov, iovcnt);
     UCT_DC_MLX5_TXQP_DECL(txqp, txwq);
 
     UCT_CHECK_IOV_SIZE(iovcnt, UCT_RC_MLX5_RMA_MAX_IOV(UCT_IB_MLX5_AV_FULL_SIZE),
                        "uct_dc_mlx5_ep_put_zcopy");
-    UCT_CHECK_LENGTH(uct_iov_total_length(iov, iovcnt), 0, UCT_IB_MAX_MESSAGE_SIZE,
+    UCT_CHECK_LENGTH(length, 0, UCT_IB_MAX_MESSAGE_SIZE,
                      "put_zcopy");
     UCT_DC_MLX5_CHECK_RES(iface, ep);
     UCT_DC_MLX5_IFACE_TXQP_GET(iface, ep, txqp, txwq);
@@ -568,8 +579,8 @@ ucs_status_t uct_dc_mlx5_ep_put_zcopy(uct_ep_h tl_ep, const uct_iov_t *iov, size
                                  0);
 
     uct_dc_mlx5_add_flush_remote(ep);
-    UCT_TL_EP_STAT_OP(&ep->super, PUT, ZCOPY,
-                      uct_iov_total_length(iov, iovcnt));
+    UCT_TL_EP_STAT_OP(&ep->super, PUT, ZCOPY, length);
+    ep->tx_size += length;
     return UCS_INPROGRESS;
 }
 
@@ -601,6 +612,7 @@ ucs_status_t uct_dc_mlx5_ep_get_bcopy(uct_ep_h tl_ep,
     UCT_RC_RDMA_READ_POSTED(&iface->super.super, length);
     UCT_TL_EP_STAT_OP(&ep->super, GET, BCOPY, length);
 
+    ep->tx_size += length;
     return UCS_INPROGRESS;
 }
 
@@ -634,6 +646,7 @@ ucs_status_t uct_dc_mlx5_ep_get_zcopy(uct_ep_h tl_ep, const uct_iov_t *iov,
     UCT_RC_RDMA_READ_POSTED(&iface->super.super, total_length);
     UCT_TL_EP_STAT_OP(&ep->super, GET, ZCOPY, total_length);
 
+    ep->tx_size += total_length;
     return UCS_INPROGRESS;
 }
 
@@ -846,6 +859,7 @@ uct_dc_mlx5_ep_tag_eager_short_inline(uct_ep_h tl_ep, uct_tag_t tag,
 
     UCT_TL_EP_STAT_OP(&ep->super, TAG, SHORT, length);
 
+    ep->tx_size += length;
     return UCS_OK;
 }
 
@@ -887,6 +901,7 @@ ucs_status_t uct_dc_mlx5_ep_tag_eager_short(uct_ep_h tl_ep, uct_tag_t tag,
         UCT_TL_EP_STAT_OP(&ep->super, TAG, SHORT, length);
     }
 
+    ep->tx_size += length;
     return status;
 #endif
 }
@@ -966,6 +981,7 @@ ucs_status_ptr_t uct_dc_mlx5_ep_tag_rndv_zcopy(uct_ep_h tl_ep, uct_tag_t tag,
     unsigned tm_hdr_len        = sizeof(struct ibv_tmh) +
                                  sizeof(struct ibv_rvh) +
                                  sizeof(struct ibv_ravh);
+    size_t length              = uct_iov_total_length(iov, iovcnt);
     struct ibv_ravh ravh;
     uint32_t op_index;
     size_t av_size;
@@ -993,6 +1009,7 @@ ucs_status_ptr_t uct_dc_mlx5_ep_tag_rndv_zcopy(uct_ep_h tl_ep, uct_tag_t tag,
                                      MLX5_WQE_CTRL_SOLICITED,
                                      ep->dci_channel_index);
 
+    ep->tx_size += length;
     return (ucs_status_ptr_t)((uint64_t)op_index);
 }
 

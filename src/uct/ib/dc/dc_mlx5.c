@@ -124,6 +124,11 @@ ucs_config_field_t uct_dc_mlx5_iface_config_sub_table[] = {
      "there are other endpoints waiting for it.",
      ucs_offsetof(uct_dc_mlx5_iface_config_t, quota), UCS_CONFIG_TYPE_UINT},
 
+    {"TX_SIZE_QUOTA", "4194304",
+     "When \"dcs_quota\" policy is selected, how much buffer to send from a DCI when\n"
+     "there are other endpoints waiting for it.",
+     ucs_offsetof(uct_dc_mlx5_iface_config_t, tx_size_quota), UCS_CONFIG_TYPE_UINT},
+
     {"FC_HARD_REQ_TIMEOUT", "5s",
      "Timeout for re-sending FC_HARD_REQ when FC window is empty.",
      ucs_offsetof(uct_dc_mlx5_iface_config_t, fc_hard_req_timeout),
@@ -1601,6 +1606,7 @@ static UCS_CLASS_INIT_FUNC(uct_dc_mlx5_iface_t, uct_md_h tl_md, uct_worker_h wor
     uct_dc_mlx5_iface_init_fc_ep(self);
 
     uct_dc_mlx5_iface_set_quota(self, config);
+    self->tx.size_quota = config->tx_size_quota;
 
     uct_rc_mlx5_iface_common_prepost_recvs(&self->super);
 
