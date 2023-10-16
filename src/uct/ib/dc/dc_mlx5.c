@@ -1393,7 +1393,7 @@ uct_dc_mlx5_iface_init_port_affinity(uct_dc_mlx5_iface_t *iface,
     uct_ib_iface_t *ib_iface = &iface->super.super.super;
     uct_ib_mlx5_md_t *md     = uct_ib_mlx5_iface_md(ib_iface);
     uct_dc_mlx5_dct_affinity_t dct_affinity;
-    uint32_t port_affinity;
+    static uint32_t port_affinity;
 
     iface->tx.port_affinity = 0;
     if (config->tx_port_affinity == UCS_CONFIG_ON) {
@@ -1421,8 +1421,8 @@ uct_dc_mlx5_iface_init_port_affinity(uct_dc_mlx5_iface_t *iface,
         if (md->super.dev.lag_level <= 1) {
             iface->rx.port_affinity = ib_iface->config.port_num;
         } else {
-            ucs_rand_range(1, md->super.dev.lag_level, &port_affinity);
-            iface->rx.port_affinity = port_affinity;
+            // ucs_rand_range(1, md->super.dev.lag_level, &port_affinity);
+            iface->rx.port_affinity = (++port_affinity & 1) + 1;
         }
         return UCS_OK;
     }
