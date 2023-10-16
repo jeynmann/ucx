@@ -758,6 +758,7 @@ void uct_ib_iface_fill_ah_attr_from_gid_lid(uct_ib_iface_t *iface, uint16_t lid,
                                             unsigned path_index,
                                             struct ibv_ah_attr *ah_attr)
 {
+    static int debug = 0;
     uint8_t path_bits;
     char buf[128];
     int rand_path;
@@ -775,7 +776,10 @@ void uct_ib_iface_fill_ah_attr_from_gid_lid(uct_ib_iface_t *iface, uint16_t lid,
         ah_attr->dlid          = UCT_IB_ROCE_UDP_SRC_PORT_BASE | rand_path;
         /* Workaround rdma-core flow label to udp sport conversion */
         ah_attr->grh.flow_label = ~rand_path;
-        ucs_info("<rand_path> flow_label=%d", (int) ah_attr->grh.flow_label);
+        if (debug == 0) {
+            debug = 1;
+            ucs_info("<rand_path> flow_label=%d", (int) ah_attr->grh.flow_label);
+	}
     } else {
         /* TODO iface->path_bits should be removed and replaced by path_index */
         path_bits              = iface->path_bits[path_index %
