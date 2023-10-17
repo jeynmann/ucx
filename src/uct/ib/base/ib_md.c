@@ -470,6 +470,7 @@ ucs_status_t uct_ib_reg_mr(struct ibv_pd *pd, void *addr, size_t length,
     ucs_time_t UCS_V_UNUSED start_time = ucs_get_time();
     const char *title;
     struct ibv_mr *mr;
+    double current_cost;
 
     if (dmabuf_fd == UCT_DMABUF_FD_INVALID) {
         title = "ibv_reg_mr";
@@ -484,6 +485,7 @@ ucs_status_t uct_ib_reg_mr(struct ibv_pd *pd, void *addr, size_t length,
         return UCS_ERR_UNSUPPORTED;
 #endif
     }
+    current_cost = ucs_time_to_msec(ucs_get_time() - start_time);
     if (mr == NULL) {
         uct_ib_md_print_mem_reg_err_msg(title, addr, length, access, errno,
                                         silent);
@@ -493,9 +495,13 @@ ucs_status_t uct_ib_reg_mr(struct ibv_pd *pd, void *addr, size_t length,
     *mr_p = mr;
 
     /* to prevent clang dead code */
-    ucs_trace("%s(pd=%p addr=%p len=%zu fd=%d offset=%zu): mr=%p took %.3f ms",
-              title, pd, addr, length, dmabuf_fd, dmabuf_offset, mr,
-              ucs_time_to_msec(ucs_get_time() - start_time));
+    if (current_cost > 100.) {
+        ucs_info("@D %s(pd=%p addr=%p len=%zu flag=%zu fd=%d offset=%zu): mr=%p took %.3f ms",
+                title, pd, addr, length, access, dmabuf_fd, dmabuf_offset, mr, current_cost);
+    }
+    // ucs_trace("%s(pd=%p addr=%p len=%zu fd=%d offset=%zu): mr=%p took %.3f ms",
+    //           title, pd, addr, length, dmabuf_fd, dmabuf_offset, mr,
+    //           ucs_time_to_msec(ucs_get_time() - start_time));
     return UCS_OK;
 }
 
