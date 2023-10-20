@@ -496,7 +496,7 @@ ucs_status_t uct_ib_reg_mr(struct ibv_pd *pd, void *addr, size_t length,
 
     /* to prevent clang dead code */
     if (current_cost > 100.) {
-        ucs_info("@D %s(pd=%p addr=%p len=%zu flag=%zu fd=%d offset=%zu): mr=%p took %.3f ms",
+        ucs_warn("@W %s(pd=%p addr=%p len=%zu flag=%zu fd=%d offset=%zu): mr=%p took %.3f ms",
                 title, pd, addr, length, access, dmabuf_fd, dmabuf_offset, mr, current_cost);
     }
     // ucs_trace("%s(pd=%p addr=%p len=%zu fd=%d offset=%zu): mr=%p took %.3f ms",
