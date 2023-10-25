@@ -463,6 +463,42 @@ uct_ib_md_reg_mr(uct_ib_md_t *md, void *address, size_t length,
                             dmabuf_offset, memh, mr_type, silent);
 }
 
+struct MemInfo {
+    size_t free;
+    size_t available;
+    size_t buffers;
+    size_t cached;
+};
+
+static void meminfo(struct MemInfo* mem_info) {
+    FILE* fmem = fopen("/proc/meminfo","r");
+    char line[64];
+    char name[64];
+    size_t value;
+    int n = 0;
+    if (NULL == fmem) {
+        return;
+    }
+    while (n < 4 && fgets(line, 127, fmem)) {
+        if (sscanf(line, "%s%zu", name, &value) != 2) {
+            continue;
+        }
+        if (0 == strcmp(name, "MemFree:")) {
+            ++n;
+            mem_info->free = value;
+        } else if (0 == strcmp(name, "MemAvailable:")) {
+            ++n;
+            mem_info->available = value;
+        } else if (0 == strcmp(name, "Buffers:")) {
+            ++n;
+            mem_info->buffers = value;
+        } else if (0 == strcmp(name, "Cached:")) {
+            ++n;
+            mem_info->cached = value;
+        }
+    }
+};
+
 ucs_status_t uct_ib_reg_mr(struct ibv_pd *pd, void *addr, size_t length,
                            uint64_t access, int dmabuf_fd, size_t dmabuf_offset,
                            struct ibv_mr **mr_p, int silent)
@@ -496,8 +532,11 @@ ucs_status_t uct_ib_reg_mr(struct ibv_pd *pd, void *addr, size_t length,
 
     /* to prevent clang dead code */
     if (current_cost > 100.) {
-        ucs_warn("@W %s(pd=%p addr=%p len=%zu flag=%zu fd=%d offset=%zu): mr=%p took %.3f ms",
-                title, pd, addr, length, access, dmabuf_fd, dmabuf_offset, mr, current_cost);
+        struct MemInfo mem_info = {};
+        meminfo(&mem_info);
+        ucs_warn("@W %s(pd=%p addr=%p len=%zu flag=%zu fd=%d offset=%zu): mr=%p took %.3f ms f=%zu a=%zu b=%zu c=%zu",
+                title, pd, addr, length, access, dmabuf_fd, dmabuf_offset, mr, current_cost,
+                mem_info.free >> 20, mem_info.available >> 20, mem_info.buffers >> 20, mem_info.cached >> 20);
     }
     // ucs_trace("%s(pd=%p addr=%p len=%zu fd=%d offset=%zu): mr=%p took %.3f ms",
     //           title, pd, addr, length, dmabuf_fd, dmabuf_offset, mr,
