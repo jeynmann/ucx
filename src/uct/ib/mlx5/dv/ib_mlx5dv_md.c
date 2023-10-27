@@ -620,12 +620,14 @@ static ucs_status_t uct_ib_mlx5_devx_reg_multithreaded(uct_ib_md_t *ibmd,
                                                     access_flags, chunk,
                                                     ksm_data->mrs, silent);
     if (status != UCS_OK) {
+        ucs_warn("@W mt handle unsupport");
         goto err;
     }
 
     status = uct_ib_mlx5_devx_reg_ksm_data(md, is_atomic, ksm_data, length, 0,
                                            &ksm_data->dvmr, &mkey);
     if (status != UCS_OK) {
+        ucs_warn("@W mt reg unsupport");
         goto err_dereg;
     }
 
