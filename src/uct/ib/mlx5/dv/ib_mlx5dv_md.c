@@ -692,6 +692,7 @@ uct_ib_mlx5_devx_mem_reg(uct_md_h uct_md, void *address, size_t length,
                                      UCT_IB_MR_DEFAULT, UINT64_MAX,
                                      &memh->super.lkey, &memh->super.rkey);
     if (status != UCS_OK) {
+        ucs_warn("@W mt reg unsupport");
         goto err_memh_free;
     }
 
@@ -705,6 +706,7 @@ uct_ib_mlx5_devx_mem_reg(uct_md_h uct_md, void *address, size_t length,
                                          ~IBV_ACCESS_RELAXED_ORDERING,
                                          &dummy_mkey, &dummy_mkey);
         if (status != UCS_OK) {
+	    ucs_warn("@W mt relaxed unsupport");
             goto err_dereg_default;
         }
     }
