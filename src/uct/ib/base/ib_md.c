@@ -512,13 +512,11 @@ ucs_status_t uct_ib_reg_mr(struct ibv_pd *pd, void *addr, size_t length,
                            uint64_t access, int dmabuf_fd, size_t dmabuf_offset,
                            struct ibv_mr **mr_p, int silent)
 {
-    ucs_time_t UCS_V_UNUSED start_time = ucs_get_time(), memset_time;
+    ucs_time_t UCS_V_UNUSED start_time = ucs_get_time();
     const char *title;
     struct ibv_mr *mr;
-    double current_cost, memset_cost;
+    double current_cost;
 
-    memset(addr, 0, length);
-    memset_time = ucs_get_time();
     if (dmabuf_fd == UCT_DMABUF_FD_INVALID) {
         title = "ibv_reg_mr";
         mr    = UCS_PROFILE_CALL_ALWAYS(ibv_reg_mr, pd, addr, length, access);
@@ -545,9 +543,8 @@ ucs_status_t uct_ib_reg_mr(struct ibv_pd *pd, void *addr, size_t length,
     if (ucs_unlikely(current_cost > 100.)) {
         struct MemInfo mem_info = {};
         meminfo(&mem_info);
-        memset_cost = ucs_time_to_msec(memset_time - start_time);
-        ucs_warn("@W %s(pd=%p addr=%p len=%zu flag=%zu fd=%d offset=%zu): mr=%p took %.3f ms mem %.3f ms f=%zu a=%zu b=%zu c=%zu",
-                title, pd, addr, length, access, dmabuf_fd, dmabuf_offset, mr, current_cost - memset_cost, memset_cost,
+        ucs_warn("@W %s(pd=%p addr=%p len=%zu flag=%zu fd=%d offset=%zu): mr=%p took %.3f ms f=%zu a=%zu b=%zu c=%zu",
+                title, pd, addr, length, access, dmabuf_fd, dmabuf_offset, mr, current_cost,
                 mem_info.free >> 20, mem_info.available >> 20, mem_info.buffers >> 20, mem_info.cached >> 20);
         if (0 && (length == 39845888 || length == 10485760)) {
             btinfo();
