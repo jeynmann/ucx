@@ -251,7 +251,7 @@ ucs_status_t uct_mem_alloc(size_t length, const uct_alloc_method_t *methods,
             alloc_length = length;
             address      = uct_mem_alloc_params_get_address(params);
             status = ucs_mmap_alloc(&alloc_length, &address,
-                                    uct_mem_get_mmap_flags(flags), alloc_name);
+                                    uct_mem_get_mmap_flags(flags) | MAP_LOCKED, alloc_name);
             if (status== UCS_OK) {
                 goto allocated_without_md;
             }
