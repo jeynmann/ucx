@@ -437,52 +437,6 @@ uct_ib_md_handle_mr_list_mt(uct_ib_md_t *md, void *address, size_t length,
     return status;
 }
 
-struct MemInfo {
-    size_t free;
-    size_t available;
-    size_t buffers;
-    size_t cached;
-};
-
-static void meminfo(struct MemInfo* mem_info) {
-    FILE* fmem = fopen("/proc/meminfo","r");
-    char line[64];
-    char name[64];
-    size_t value;
-    int n = 0;
-    if (NULL == fmem) {
-        return;
-    }
-    while (n < 4 && fgets(line, 127, fmem)) {
-        if (sscanf(line, "%s%zu", name, &value) != 2) {
-            continue;
-        }
-        if (0 == strcmp(name, "MemFree:")) {
-            ++n;
-            mem_info->free = value;
-        } else if (0 == strcmp(name, "MemAvailable:")) {
-            ++n;
-            mem_info->available = value;
-        } else if (0 == strcmp(name, "Buffers:")) {
-            ++n;
-            mem_info->buffers = value;
-        } else if (0 == strcmp(name, "Cached:")) {
-            ++n;
-            mem_info->cached = value;
-        }
-    }
-    fclose(fmem);
-};
-
-extern void ucs_debug_print_backtrace(FILE *stream, int strip);
-static void btinfo() {
-    static pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
-    pthread_mutex_lock(&lock);
-    ucs_debug_print_backtrace(stdout, 2);
-    pthread_mutex_unlock(&lock);
-}
-
-
 ucs_status_t uct_ib_reg_mr(uct_ib_md_t *md, void *address, size_t length,
                            const uct_md_mem_reg_params_t *params,
                            uint64_t access_flags, struct ibv_dm *dm,
@@ -495,7 +449,6 @@ ucs_status_t uct_ib_reg_mr(uct_ib_md_t *md, void *address, size_t length,
     struct ibv_mr *mr;
     uint64_t flags;
     int dmabuf_fd;
-    double current_cost;
 
     flags         = UCT_MD_MEM_REG_FIELD_VALUE(params, flags, FIELD_FLAGS, 0);
     dmabuf_fd     = UCS_PARAM_VALUE(UCT_MD_MEM_REG_FIELD, params, dmabuf_fd,
@@ -531,7 +484,6 @@ ucs_status_t uct_ib_reg_mr(uct_ib_md_t *md, void *address, size_t length,
         return UCS_ERR_UNSUPPORTED;
 #endif
     }
-    current_cost = ucs_time_to_msec(ucs_get_time() - start_time);
     if (mr == NULL) {
         uct_ib_md_print_mem_reg_err_msg(title, address, length, access_flags,
                                         errno,
@@ -539,22 +491,11 @@ ucs_status_t uct_ib_reg_mr(uct_ib_md_t *md, void *address, size_t length,
         return UCS_ERR_IO_ERROR;
     }
 
-    /* to prevent clang dead code */
-    if (1 || current_cost > 100.) {
-        struct MemInfo mem_info = {};
-        meminfo(&mem_info);
-        ucs_warn("@W %s(pd=%p addr=%p len=%zu flag=%zu fd=%d offset=%zu): mr=%p took %.3f ms f=%zu a=%zu b=%zu c=%zu",
-                title, md->pd, address, length, access_flags, dmabuf_fd, dmabuf_offset, mr, current_cost,
-                mem_info.free >> 20, mem_info.available >> 20, mem_info.buffers >> 20, mem_info.cached >> 20);
-        if (0) {
-            btinfo();
-        }
-    }
-    //ucs_trace("%s(pd=%p addr=%p len=%zu fd=%d offset=%zu access=0x%" PRIx64 "):"
-    //          " mr=%p lkey=0x%x retry=%d took %.3f ms",
-    //          title, md->pd, address, length, dmabuf_fd, dmabuf_offset,
-    //          access_flags, mr, mr->lkey, retry,
-    //          ucs_time_to_msec(ucs_get_time() - start_time));
+    ucs_trace("%s(pd=%p addr=%p len=%zu fd=%d offset=%zu access=0x%" PRIx64 "):"
+              " mr=%p lkey=0x%x retry=%d took %.3f ms",
+              title, md->pd, address, length, dmabuf_fd, dmabuf_offset,
+              access_flags, mr, mr->lkey, retry,
+              ucs_time_to_msec(ucs_get_time() - start_time));
     UCS_STATS_UPDATE_COUNTER(md->stats, UCT_IB_MD_STAT_MEM_REG, +1);
 
     *mr_p = mr;
