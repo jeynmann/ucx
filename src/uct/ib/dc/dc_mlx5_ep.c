@@ -620,6 +620,8 @@ ucs_status_t uct_dc_mlx5_ep_get_zcopy(uct_ep_h tl_ep, const uct_iov_t *iov,
     UCT_CHECK_LENGTH(total_length,
                      iface->super.super.super.config.max_inl_cqe[UCT_IB_DIR_TX] + 1,
                      iface->super.super.config.max_get_zcopy, "get_zcopy");
+    ucs_trace("@IZ if %p dci %d qp %x rlid %d", iface, (int)ep->dci,
+               iface->tx.dcis[ep->dci].txwq.super.qp_num, htons(ep->av.rlid));
     UCT_DC_MLX5_CHECK_RES(iface, ep);
     UCT_DC_MLX5_IFACE_TXQP_GET(iface, ep, txqp, txwq);
     uct_rc_mlx5_ep_fence_get(&iface->super, txwq, &rkey, &fm_ce_se);
@@ -631,6 +633,9 @@ ucs_status_t uct_dc_mlx5_ep_get_zcopy(uct_ep_h tl_ep, const uct_iov_t *iov,
                                  UCT_RC_IFACE_SEND_OP_FLAG_IOV, comp,
                                  fm_ce_se);
 
+    ucs_trace("@IZ if %p dci %d qp %x rlid %d cnt %lu len %lu", iface, (int)ep->dci,
+               iface->tx.dcis[ep->dci].txwq.super.qp_num, htons(ep->av.rlid),
+               iovcnt, total_length);
     UCT_RC_RDMA_READ_POSTED(&iface->super.super, total_length);
     UCT_TL_EP_STAT_OP(&ep->super, GET, ZCOPY, total_length);
 

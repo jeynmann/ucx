@@ -507,7 +507,6 @@ static inline void uct_dc_mlx5_iface_dci_alloc(uct_dc_mlx5_iface_t *iface, uct_d
      */
     uint8_t pool_index           = uct_dc_mlx5_ep_pool_index(ep);
     uct_dc_mlx5_dci_pool_t *pool = &iface->tx.dci_pool[pool_index];
-    int rand_lid;
 
     ucs_assert(!uct_dc_mlx5_iface_is_dci_shared(iface));
     ucs_assert(pool->release_stack_top < pool->stack_top);
@@ -521,14 +520,6 @@ static inline void uct_dc_mlx5_iface_dci_alloc(uct_dc_mlx5_iface_t *iface, uct_d
         (void)uct_dc_mlx5_ep_qp_to_err(ep);
     }
 
-    ucs_rand_range(0, 4095, &rand_lid);
-    rand_lid |= UCT_IB_ROCE_UDP_SRC_PORT_BASE;
-    ep->av.rlid = htons((short)rand_lid);
-
-    if (next_rand == 0) {
-        next_rand = 1;
-        ucs_warn("<rand_rlid> rand_lid=%d", rand_lid);
-    }
     ucs_assertv(pool->stack_top > 0, "dci pool overflow, stack_top=%d",
                 (int)pool->stack_top);
     ucs_debug("iface %p: allocate dci %d for ep %p", iface, ep->dci, ep);
@@ -584,6 +575,7 @@ uct_dc_mlx5_iface_dci_get(uct_dc_mlx5_iface_t *iface, uct_dc_mlx5_ep_t *ep)
     uint8_t pool_index = uct_dc_mlx5_ep_pool_index(ep);
     ucs_arbiter_t *waitq;
     uct_rc_txqp_t *txqp;
+    int rand_lid;
     int16_t available;
 
     ucs_assert(!iface->super.super.config.tx_moderation);
@@ -604,10 +596,23 @@ uct_dc_mlx5_iface_dci_get(uct_dc_mlx5_iface_t *iface, uct_dc_mlx5_ep_t *ep)
 
     if (ep->dci != UCT_DC_MLX5_EP_NO_DCI) {
         /* dci is already assigned - keep using it */
-        if ((iface->tx.policy == UCT_DC_TX_POLICY_DCS_QUOTA) &&
-            (ep->flags & UCT_DC_MLX5_EP_FLAG_TX_WAIT)) {
-            goto out_no_res;
-        }
+        if (iface->tx.policy == UCT_DC_TX_POLICY_DCS_QUOTA) {
+            ucs_rand_range(0, 4095, &rand_lid);
+            rand_lid |= UCT_IB_ROCE_UDP_SRC_PORT_BASE;
+            ep->av.rlid = htons((short)rand_lid);
+
+            if (ucs_unlikely(next_rand == 0)) {
+                next_rand = 1;
+                ucs_warn("<rand_rlid> rand_lid=%d", rand_lid);
+            }
+
+            ucs_trace("@I if %p dci %d qp %x rlid %d", iface, (int)ep->dci,
+                       iface->tx.dcis[ep->dci].txwq.super.qp_num, rand_lid);
+
+            if (ep->flags & UCT_DC_MLX5_EP_FLAG_TX_WAIT) {
+                goto out_no_res;
+            }
+	}
 
         /* if dci has sent more than quota, and there are eps waiting for dci
          * allocation ep goes into tx_wait state.
@@ -617,7 +622,7 @@ uct_dc_mlx5_iface_dci_get(uct_dc_mlx5_iface_t *iface, uct_dc_mlx5_ep_t *ep)
         waitq     = uct_dc_mlx5_iface_dci_waitq(iface, pool_index);
         if ((iface->tx.policy == UCT_DC_TX_POLICY_DCS_QUOTA) &&
             (available <= iface->tx.available_quota) &&
-            (1 || !ucs_arbiter_is_empty(waitq)))
+            (!ucs_arbiter_is_empty(waitq)))
         {
             ep->flags |= UCT_DC_MLX5_EP_FLAG_TX_WAIT;
             goto out_no_res;
