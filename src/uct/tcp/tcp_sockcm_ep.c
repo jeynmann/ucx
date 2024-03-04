@@ -741,6 +741,7 @@ ucs_status_t uct_tcp_sockcm_ep_handle_data_received(uct_tcp_sockcm_ep_t *cep)
 
     if (cep->state & UCT_TCP_SOCKCM_EP_ON_SERVER) {
         status = uct_tcp_sockcm_ep_server_handle_data_received(cep);
+        ucs_info("cm_ep %p recv on server status %d", cep, (int)status);
     } else {
         ucs_assert(cep->state & UCT_TCP_SOCKCM_EP_ON_CLIENT);
 
@@ -749,8 +750,10 @@ ucs_status_t uct_tcp_sockcm_ep_handle_data_received(uct_tcp_sockcm_ep_t *cep)
             ucs_assert(!(cep->state & UCT_TCP_SOCKCM_EP_CLIENT_CONNECTED_CB_INVOKED));
             cep->state |= UCT_TCP_SOCKCM_EP_CLIENT_GOT_REJECT;
             status = UCS_ERR_REJECTED;
+            ucs_info("cm_ep %p recv on client status %d", cep, (int)status);
         } else {
             status = uct_tcp_sockcm_ep_client_invoke_connect_cb(cep);
+            ucs_info("cm_ep %p recv on client status %d", cep, (int)status);
         }
 
         /* next, unless disconnected, if the client did not send
@@ -809,16 +812,19 @@ ucs_status_t uct_tcp_sockcm_ep_recv(uct_tcp_sockcm_ep_t *cep)
                                UCT_TCP_SOCKCM_EP_FAILED)));
 
     if (cep->state & UCT_TCP_SOCKCM_EP_SERVER_REJECT_CALLED) {
+        ucs_info("cm_ep %p recv reject called", cep);
         return UCS_OK;
     }
 
     status = uct_tcp_sockcm_ep_recv_nb(cep);
     if (status != UCS_OK) {
+        ucs_info("cm_ep %p recv status %d", cep, (int)status);
         goto out;
     }
 
     if (!(cep->state & UCT_TCP_SOCKCM_EP_HDR_RECEIVED)) {
         if (cep->comm_ctx.offset < sizeof(*hdr)) {
+            ucs_info("cm_ep %p recv unfinished", cep);
             goto out;
         }
 
