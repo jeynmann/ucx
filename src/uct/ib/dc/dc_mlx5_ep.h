@@ -603,7 +603,7 @@ uct_dc_mlx5_iface_dci_get(uct_dc_mlx5_iface_t *iface, uct_dc_mlx5_ep_t *ep)
 
             if (ucs_unlikely(next_rand == 0)) {
                 next_rand = 1;
-                ucs_warn("<rand_rlid> rand_lid=%d", rand_lid);
+                ucs_info("<rand_rlid> rand_lid=%d", rand_lid);
             }
 
             ucs_trace("@I if %p dci %d qp %x rlid %d", iface, (int)ep->dci,
