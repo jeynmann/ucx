@@ -168,6 +168,10 @@ static void ucs_async_handler_put(ucs_async_handler_t *handler)
         return;
     }
 
+    if (handler->missed != 0) {
+        ucs_warn("release async handler " UCS_ASYNC_HANDLER_FMT " missed %d",
+                 UCS_ASYNC_HANDLER_ARG(handler), handler->missed);
+    }
     ucs_debug("release async handler " UCS_ASYNC_HANDLER_FMT,
               UCS_ASYNC_HANDLER_ARG(handler));
     ucs_free(handler);
@@ -247,7 +251,7 @@ static void ucs_async_handler_invoke(ucs_async_handler_t *handler,
      * the handler must always be called with async context blocked, so no need
      * for atomic operations here.
      */
-    ucs_assert(handler->caller == UCS_ASYNC_PTHREAD_ID_NULL);
+    ucs_assert_always(handler->caller == UCS_ASYNC_PTHREAD_ID_NULL);
     handler->caller = pthread_self();
     handler->cb(handler->id, events, handler->arg);
     handler->caller = UCS_ASYNC_PTHREAD_ID_NULL;
@@ -621,7 +625,7 @@ void __ucs_async_poll_missed(ucs_async_context_t *async)
         ucs_async_missed_event_unpack(value, &handler_id, &events);
         handler = ucs_async_handler_get(handler_id);
         if (handler != NULL) {
-            ucs_assert(handler->async == async);
+            ucs_assert_always(handler->async == async);
             handler->missed = 0;
             ucs_async_handler_invoke(handler, events);
             ucs_async_handler_put(handler);
