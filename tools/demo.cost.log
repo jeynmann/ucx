@@ -1,0 +1,370 @@
+[1670929237.815245] [DEMO] Starting io_demo pid 326203 on gen-mtvr-14
+[1670929237.815283] [DEMO] Command line: /.autodirect/swgwork/zizhao/code/openucx/ucx/test/apps/iodemo/.libs/lt-io_demo -d 8192 -L4 -i 1 192.168.1.13 
+[1670929237.815288] [DEMO] UCX library path: /.autodirect/swgwork/zizhao/code/openucx/ucx/test/apps/iodemo/.libs/lt-io_demo
+[1670929237.815294] [DEMO] random seed: 1671209326
+[1670929237.851048] [UCX] created context 0xbb64b0 with TAG
+[1670929237.979938] [UCX] created worker 0x7f399d6dc010
+[1670929237.979982] [UCX-connection 0xbc94c0: #1 0.0.0.0:0] created new connection 0xbc94c0 total: 1
+[1670929237.979987] [UCX-connection 0xbc94c0: #1 192.168.1.13:1337] Connecting to 192.168.1.13:1337
+[1670929237.980080] [UCX-connection 0xbc94c0: #1 192.168.1.13:1337] created endpoint 0x7f399d598000, connection id 1
+[1670929237.980090] [UCX] added [UCX-connection 0xbc94c0: #1 192.168.1.13:1337] to connection map
+[1670929238.014043] [UCX-connection 0xbc94c0: #1 192.168.1.13:1337] Remote id is 943, endpoint 0x7f399d598000, local address 192.168.1.14:37472 remote address 192.168.1.13:1337
+[1670929238.014056] [DEMO] Connected to server [0] 192.168.1.13 after 1 attempts
+[1670929238.015493] [DEMO] total min:1 max:1 total:1 | read 0 MBs min:0(192.168.1.13) max:0 total:0 | write 0.219934 MBs min:1(192.168.1.13) max:1 total:1 | active:1/1 buffers:1
+[1670929238.015513] [DEMO] disconnecting [UCX-connection 0xbc94c0: #1 192.168.1.13:1337] read 0/0 write 0/0 due to "End of the Client run"
+[1670929238.015543] [UCX-connection 0xbc94c0: #1 192.168.1.13:1337] disconnect, ep is 0x7f399d598000
+[1670929238.015546] [UCX] removed [UCX-connection 0xbc94c0: #1 192.168.1.13:1337] from connection map
+[1670929238.015548] [UCX-connection 0xbc94c0: #1 192.168.1.13:1337] <UcxContext::remove_connection> used 3us
+[1670929238.015549] [UCX-connection 0xbc94c0: #1 192.168.1.13:1337] <UcxConnection::established> used 0us
+[1670929238.015552] [UCX-connection 0xbc94c0: #1 192.168.1.13:1337] <UcxConnection::cancel_all> used 0us
+[1670929238.015553] [UCX-connection 0xbc94c0: #1 192.168.1.13:1337] closing ep 0x7f399d598000 mode force
+[1670929238.015572] [gen-mtvr-14:326203:0]          ucp_ep.c:1687 UCX  WARN  <ucp_ep_close_nbx> used 8us
+[1670929238.015576] [UCX-connection 0xbc94c0: #1 192.168.1.13:1337] <UcxConnection::ep_close> used 23us
+[1670929238.015578] [DEMO] waiting for 1 disconnects to complete
+[1670929238.015688] [UCX-connection 0xbc94c0: #1 192.168.1.13:1337] disconnection completed
+[1670929238.015692] [UCX-connection 0xbc94c0: #1 192.168.1.13:1337] released
+[1670929238.015694] [DEMO] Client exit with status 'OK'
+[1670929238.015695] [DEMO] <connect>
+18446744073708585703 
+</connect>
+
+
+[1670929238.015698] [DEMO] <disconnect>
+175 
+</disconnect>
+
+
+[1670929238.015707] [UCX] iomsg receive request 0xccb048 failed: Request canceled
+[1670929238.116744] [DEMO] Starting io_demo pid 326226 on gen-mtvr-14
+[1670929238.116765] [DEMO] Command line: /.autodirect/swgwork/zizhao/code/openucx/ucx/test/apps/iodemo/.libs/lt-io_demo -d 8192 -L4 -i 1 192.168.1.13 
+[1670929238.116769] [DEMO] UCX library path: /.autodirect/swgwork/zizhao/code/openucx/ucx/test/apps/iodemo/.libs/lt-io_demo
+[1670929238.116776] [DEMO] random seed: 1671209220
+[1670929238.149802] [UCX] created context 0x14174b0 with TAG
+[1670929238.307950] [UCX] created worker 0x7fb28feb8010
+[1670929238.307993] [UCX-connection 0x142a4c0: #1 0.0.0.0:0] created new connection 0x142a4c0 total: 1
+[1670929238.307999] [UCX-connection 0x142a4c0: #1 192.168.1.13:1337] Connecting to 192.168.1.13:1337
+[1670929238.308082] [UCX-connection 0x142a4c0: #1 192.168.1.13:1337] created endpoint 0x7fb28fd74000, connection id 1
+[1670929238.308094] [UCX] added [UCX-connection 0x142a4c0: #1 192.168.1.13:1337] to connection map
+[1670929238.334799] [UCX-connection 0x142a4c0: #1 192.168.1.13:1337] Remote id is 944, endpoint 0x7fb28fd74000, local address 192.168.1.14:32980 remote address 192.168.1.13:1337
+[1670929238.334813] [DEMO] Connected to server [0] 192.168.1.13 after 1 attempts
+[1670929238.334865] [DEMO] total min:1 max:1 total:1 | read 0 MBs min:0(192.168.1.13) max:0 total:0 | write 0.290633 MBs min:1(192.168.1.13) max:1 total:1 | active:1/1 buffers:1
+[1670929238.334881] [DEMO] disconnecting [UCX-connection 0x142a4c0: #1 192.168.1.13:1337] read 0/0 write 0/0 due to "End of the Client run"
+[1670929238.334910] [UCX-connection 0x142a4c0: #1 192.168.1.13:1337] disconnect, ep is 0x7fb28fd74000
+[1670929238.334913] [UCX] removed [UCX-connection 0x142a4c0: #1 192.168.1.13:1337] from connection map
+[1670929238.334915] [UCX-connection 0x142a4c0: #1 192.168.1.13:1337] <UcxContext::remove_connection> used 3us
+[1670929238.334916] [UCX-connection 0x142a4c0: #1 192.168.1.13:1337] <UcxConnection::established> used 0us
+[1670929238.334919] [UCX-connection 0x142a4c0: #1 192.168.1.13:1337] <UcxConnection::cancel_all> used 0us
+[1670929238.334920] [UCX-connection 0x142a4c0: #1 192.168.1.13:1337] closing ep 0x7fb28fd74000 mode force
+[1670929238.334934] [gen-mtvr-14:326226:0]          ucp_ep.c:1687 UCX  WARN  <ucp_ep_close_nbx> used 7us
+[1670929238.334938] [UCX-connection 0x142a4c0: #1 192.168.1.13:1337] <UcxConnection::ep_close> used 18us
+[1670929238.334940] [DEMO] waiting for 1 disconnects to complete
+[1670929238.335703] [UCX-connection 0x142a4c0: #1 192.168.1.13:1337] disconnection completed
+[1670929238.335707] [UCX-connection 0x142a4c0: #1 192.168.1.13:1337] released
+[1670929238.335709] [DEMO] Client exit with status 'OK'
+[1670929238.335711] [DEMO] <connect>
+26831 
+</connect>
+
+
+[1670929238.335713] [DEMO] <disconnect>
+822 
+</disconnect>
+
+
+[1670929238.335722] [UCX] iomsg receive request 0x152c048 failed: Request canceled
+[1670929238.420825] [DEMO] Starting io_demo pid 326241 on gen-mtvr-14
+[1670929238.420847] [DEMO] Command line: /.autodirect/swgwork/zizhao/code/openucx/ucx/test/apps/iodemo/.libs/lt-io_demo -d 8192 -L4 -i 1 192.168.1.13 
+[1670929238.420852] [DEMO] UCX library path: /.autodirect/swgwork/zizhao/code/openucx/ucx/test/apps/iodemo/.libs/lt-io_demo
+[1670929238.420857] [DEMO] random seed: 1671209271
+[1670929238.461378] [UCX] created context 0x18214b0 with TAG
+[1670929238.594202] [UCX] created worker 0x7f067b25f010
+[1670929238.594245] [UCX-connection 0x182fda0: #1 0.0.0.0:0] created new connection 0x182fda0 total: 1
+[1670929238.594251] [UCX-connection 0x182fda0: #1 192.168.1.13:1337] Connecting to 192.168.1.13:1337
+[1670929238.594339] [UCX-connection 0x182fda0: #1 192.168.1.13:1337] created endpoint 0x7f067b11b000, connection id 1
+[1670929238.594348] [UCX] added [UCX-connection 0x182fda0: #1 192.168.1.13:1337] to connection map
+[1670929238.619209] [UCX-connection 0x182fda0: #1 192.168.1.13:1337] Remote id is 945, endpoint 0x7f067b11b000, local address 192.168.1.14:35803 remote address 192.168.1.13:1337
+[1670929238.619221] [DEMO] Connected to server [0] 192.168.1.13 after 1 attempts
+[1670929238.619273] [DEMO] total min:1 max:1 total:1 | read 0 MBs min:0(192.168.1.13) max:0 total:0 | write 0.312038 MBs min:1(192.168.1.13) max:1 total:1 | active:1/1 buffers:1
+[1670929238.619284] [DEMO] disconnecting [UCX-connection 0x182fda0: #1 192.168.1.13:1337] read 0/0 write 0/0 due to "End of the Client run"
+[1670929238.619313] [UCX-connection 0x182fda0: #1 192.168.1.13:1337] disconnect, ep is 0x7f067b11b000
+[1670929238.619317] [UCX] removed [UCX-connection 0x182fda0: #1 192.168.1.13:1337] from connection map
+[1670929238.619318] [UCX-connection 0x182fda0: #1 192.168.1.13:1337] <UcxContext::remove_connection> used 3us
+[1670929238.619320] [UCX-connection 0x182fda0: #1 192.168.1.13:1337] <UcxConnection::established> used 0us
+[1670929238.619322] [UCX-connection 0x182fda0: #1 192.168.1.13:1337] <UcxConnection::cancel_all> used 0us
+[1670929238.619324] [UCX-connection 0x182fda0: #1 192.168.1.13:1337] closing ep 0x7f067b11b000 mode force
+[1670929238.619342] [gen-mtvr-14:326241:0]          ucp_ep.c:1687 UCX  WARN  <ucp_ep_close_nbx> used 7us
+[1670929238.619345] [UCX-connection 0x182fda0: #1 192.168.1.13:1337] <UcxConnection::ep_close> used 21us
+[1670929238.619347] [DEMO] waiting for 1 disconnects to complete
+[1670929238.620100] [UCX-connection 0x182fda0: #1 192.168.1.13:1337] disconnection completed
+[1670929238.620108] [UCX-connection 0x182fda0: #1 192.168.1.13:1337] released
+[1670929238.620110] [DEMO] Client exit with status 'OK'
+[1670929238.620112] [DEMO] <connect>
+24989 
+</connect>
+
+
+[1670929238.620115] [DEMO] <disconnect>
+821 
+</disconnect>
+
+
+[1670929238.620124] [UCX] iomsg receive request 0x1936048 failed: Request canceled
+[1670929238.717857] [DEMO] Starting io_demo pid 326256 on gen-mtvr-14
+[1670929238.717877] [DEMO] Command line: /.autodirect/swgwork/zizhao/code/openucx/ucx/test/apps/iodemo/.libs/lt-io_demo -d 8192 -L4 -i 1 192.168.1.13 
+[1670929238.717881] [DEMO] UCX library path: /.autodirect/swgwork/zizhao/code/openucx/ucx/test/apps/iodemo/.libs/lt-io_demo
+[1670929238.717888] [DEMO] random seed: 1671209254
+[1670929238.749067] [UCX] created context 0x18aa4b0 with TAG
+[1670929238.886279] [UCX] created worker 0x7f497bbc7010
+[1670929238.886322] [UCX-connection 0x18b8da0: #1 0.0.0.0:0] created new connection 0x18b8da0 total: 1
+[1670929238.886327] [UCX-connection 0x18b8da0: #1 192.168.1.13:1337] Connecting to 192.168.1.13:1337
+[1670929238.886408] [UCX-connection 0x18b8da0: #1 192.168.1.13:1337] created endpoint 0x7f497ba83000, connection id 1
+[1670929238.886416] [UCX] added [UCX-connection 0x18b8da0: #1 192.168.1.13:1337] to connection map
+[1670929238.909565] [UCX-connection 0x18b8da0: #1 192.168.1.13:1337] Remote id is 946, endpoint 0x7f497ba83000, local address 192.168.1.14:35397 remote address 192.168.1.13:1337
+[1670929238.909577] [DEMO] Connected to server [0] 192.168.1.13 after 1 attempts
+[1670929238.909627] [DEMO] total min:1 max:1 total:1 | read 0 MBs min:0(192.168.1.13) max:0 total:0 | write 0.335113 MBs min:1(192.168.1.13) max:1 total:1 | active:1/1 buffers:1
+[1670929238.909638] [DEMO] disconnecting [UCX-connection 0x18b8da0: #1 192.168.1.13:1337] read 0/0 write 0/0 due to "End of the Client run"
+[1670929238.909667] [UCX-connection 0x18b8da0: #1 192.168.1.13:1337] disconnect, ep is 0x7f497ba83000
+[1670929238.909670] [UCX] removed [UCX-connection 0x18b8da0: #1 192.168.1.13:1337] from connection map
+[1670929238.909672] [UCX-connection 0x18b8da0: #1 192.168.1.13:1337] <UcxContext::remove_connection> used 3us
+[1670929238.909673] [UCX-connection 0x18b8da0: #1 192.168.1.13:1337] <UcxConnection::established> used 0us
+[1670929238.909676] [UCX-connection 0x18b8da0: #1 192.168.1.13:1337] <UcxConnection::cancel_all> used 0us
+[1670929238.909677] [UCX-connection 0x18b8da0: #1 192.168.1.13:1337] closing ep 0x7f497ba83000 mode force
+[1670929238.909693] [gen-mtvr-14:326256:0]          ucp_ep.c:1687 UCX  WARN  <ucp_ep_close_nbx> used 8us
+[1670929238.909696] [UCX-connection 0x18b8da0: #1 192.168.1.13:1337] <UcxConnection::ep_close> used 19us
+[1670929238.909698] [DEMO] waiting for 1 disconnects to complete
+[1670929238.910503] [UCX-connection 0x18b8da0: #1 192.168.1.13:1337] disconnection completed
+[1670929238.910507] [UCX-connection 0x18b8da0: #1 192.168.1.13:1337] released
+[1670929238.910509] [DEMO] Client exit with status 'OK'
+[1670929238.910511] [DEMO] <connect>
+23264 
+</connect>
+
+
+[1670929238.910513] [DEMO] <disconnect>
+866 
+</disconnect>
+
+
+[1670929238.910522] [UCX] iomsg receive request 0x19bf048 failed: Request canceled
+[1670929239.000921] [DEMO] Starting io_demo pid 326271 on gen-mtvr-14
+[1670929239.000942] [DEMO] Command line: /.autodirect/swgwork/zizhao/code/openucx/ucx/test/apps/iodemo/.libs/lt-io_demo -d 8192 -L4 -i 1 192.168.1.13 
+[1670929239.000946] [DEMO] UCX library path: /.autodirect/swgwork/zizhao/code/openucx/ucx/test/apps/iodemo/.libs/lt-io_demo
+[1670929239.000953] [DEMO] random seed: 1671209257
+[1670929239.039195] [UCX] created context 0x22de4b0 with TAG
+[1670929239.179363] [UCX] created worker 0x7f4aeba63010
+[1670929239.179404] [UCX-connection 0x22f14c0: #1 0.0.0.0:0] created new connection 0x22f14c0 total: 1
+[1670929239.179410] [UCX-connection 0x22f14c0: #1 192.168.1.13:1337] Connecting to 192.168.1.13:1337
+[1670929239.179490] [UCX-connection 0x22f14c0: #1 192.168.1.13:1337] created endpoint 0x7f4aeb91f000, connection id 1
+[1670929239.179499] [UCX] added [UCX-connection 0x22f14c0: #1 192.168.1.13:1337] to connection map
+[1670929239.206171] [UCX-connection 0x22f14c0: #1 192.168.1.13:1337] Remote id is 947, endpoint 0x7f4aeb91f000, local address 192.168.1.14:59929 remote address 192.168.1.13:1337
+[1670929239.206182] [DEMO] Connected to server [0] 192.168.1.13 after 1 attempts
+[1670929239.206950] [DEMO] total min:1 max:1 total:1 | read 0 MBs min:0(192.168.1.13) max:0 total:0 | write 0.283524 MBs min:1(192.168.1.13) max:1 total:1 | active:1/1 buffers:1
+[1670929239.206961] [DEMO] disconnecting [UCX-connection 0x22f14c0: #1 192.168.1.13:1337] read 0/0 write 0/0 due to "End of the Client run"
+[1670929239.207000] [UCX-connection 0x22f14c0: #1 192.168.1.13:1337] disconnect, ep is 0x7f4aeb91f000
+[1670929239.207003] [UCX] removed [UCX-connection 0x22f14c0: #1 192.168.1.13:1337] from connection map
+[1670929239.207005] [UCX-connection 0x22f14c0: #1 192.168.1.13:1337] <UcxContext::remove_connection> used 3us
+[1670929239.207007] [UCX-connection 0x22f14c0: #1 192.168.1.13:1337] <UcxConnection::established> used 0us
+[1670929239.207009] [UCX-connection 0x22f14c0: #1 192.168.1.13:1337] <UcxConnection::cancel_all> used 0us
+[1670929239.207011] [UCX-connection 0x22f14c0: #1 192.168.1.13:1337] closing ep 0x7f4aeb91f000 mode force
+[1670929239.207026] [gen-mtvr-14:326271:0]          ucp_ep.c:1687 UCX  WARN  <ucp_ep_close_nbx> used 7us
+[1670929239.207029] [UCX-connection 0x22f14c0: #1 192.168.1.13:1337] <UcxConnection::ep_close> used 18us
+[1670929239.207031] [DEMO] waiting for 1 disconnects to complete
+[1670929239.207138] [UCX-connection 0x22f14c0: #1 192.168.1.13:1337] disconnection completed
+[1670929239.207142] [UCX-connection 0x22f14c0: #1 192.168.1.13:1337] released
+[1670929239.207144] [DEMO] Client exit with status 'OK'
+[1670929239.207146] [DEMO] <connect>
+26789 
+</connect>
+
+
+[1670929239.207149] [DEMO] <disconnect>
+177 
+</disconnect>
+
+
+[1670929239.207157] [UCX] iomsg receive request 0x23f3048 failed: Request canceled
+[1670929239.300121] [DEMO] Starting io_demo pid 326286 on gen-mtvr-14
+[1670929239.300144] [DEMO] Command line: /.autodirect/swgwork/zizhao/code/openucx/ucx/test/apps/iodemo/.libs/lt-io_demo -d 8192 -L4 -i 1 192.168.1.13 
+[1670929239.300148] [DEMO] UCX library path: /.autodirect/swgwork/zizhao/code/openucx/ucx/test/apps/iodemo/.libs/lt-io_demo
+[1670929239.300154] [DEMO] random seed: 1671209433
+[1670929239.334284] [UCX] created context 0x1d5b4b0 with TAG
+[1670929239.474509] [UCX] created worker 0x7f37a3bce010
+[1670929239.474549] [UCX-connection 0x1d6e4c0: #1 0.0.0.0:0] created new connection 0x1d6e4c0 total: 1
+[1670929239.474554] [UCX-connection 0x1d6e4c0: #1 192.168.1.13:1337] Connecting to 192.168.1.13:1337
+[1670929239.474638] [UCX-connection 0x1d6e4c0: #1 192.168.1.13:1337] created endpoint 0x7f37a3a8a000, connection id 1
+[1670929239.474648] [UCX] added [UCX-connection 0x1d6e4c0: #1 192.168.1.13:1337] to connection map
+[1670929239.498851] [UCX-connection 0x1d6e4c0: #1 192.168.1.13:1337] Remote id is 948, endpoint 0x7f37a3a8a000, local address 192.168.1.14:39814 remote address 192.168.1.13:1337
+[1670929239.498863] [DEMO] Connected to server [0] 192.168.1.13 after 1 attempts
+[1670929239.498910] [DEMO] total min:1 max:1 total:1 | read 0 MBs min:0(192.168.1.13) max:0 total:0 | write 0.320579 MBs min:1(192.168.1.13) max:1 total:1 | active:1/1 buffers:1
+[1670929239.498921] [DEMO] disconnecting [UCX-connection 0x1d6e4c0: #1 192.168.1.13:1337] read 0/0 write 0/0 due to "End of the Client run"
+[1670929239.498951] [UCX-connection 0x1d6e4c0: #1 192.168.1.13:1337] disconnect, ep is 0x7f37a3a8a000
+[1670929239.498954] [UCX] removed [UCX-connection 0x1d6e4c0: #1 192.168.1.13:1337] from connection map
+[1670929239.498956] [UCX-connection 0x1d6e4c0: #1 192.168.1.13:1337] <UcxContext::remove_connection> used 3us
+[1670929239.498957] [UCX-connection 0x1d6e4c0: #1 192.168.1.13:1337] <UcxConnection::established> used 0us
+[1670929239.498960] [UCX-connection 0x1d6e4c0: #1 192.168.1.13:1337] <UcxConnection::cancel_all> used 0us
+[1670929239.498961] [UCX-connection 0x1d6e4c0: #1 192.168.1.13:1337] closing ep 0x7f37a3a8a000 mode force
+[1670929239.498980] [gen-mtvr-14:326286:0]          ucp_ep.c:1687 UCX  WARN  <ucp_ep_close_nbx> used 7us
+[1670929239.498983] [UCX-connection 0x1d6e4c0: #1 192.168.1.13:1337] <UcxConnection::ep_close> used 22us
+[1670929239.498989] [DEMO] waiting for 1 disconnects to complete
+[1670929239.499728] [UCX-connection 0x1d6e4c0: #1 192.168.1.13:1337] disconnection completed
+[1670929239.499732] [UCX-connection 0x1d6e4c0: #1 192.168.1.13:1337] released
+[1670929239.499734] [DEMO] Client exit with status 'OK'
+[1670929239.499736] [DEMO] <connect>
+24324 
+</connect>
+
+
+[1670929239.499739] [DEMO] <disconnect>
+807 
+</disconnect>
+
+
+[1670929239.499749] [UCX] iomsg receive request 0x1e70048 failed: Request canceled
+[1670929239.592336] [DEMO] Starting io_demo pid 326301 on gen-mtvr-14
+[1670929239.592357] [DEMO] Command line: /.autodirect/swgwork/zizhao/code/openucx/ucx/test/apps/iodemo/.libs/lt-io_demo -d 8192 -L4 -i 1 192.168.1.13 
+[1670929239.592361] [DEMO] UCX library path: /.autodirect/swgwork/zizhao/code/openucx/ucx/test/apps/iodemo/.libs/lt-io_demo
+[1670929239.592368] [DEMO] random seed: 1671209418
+[1670929239.628447] [UCX] created context 0x17dc4b0 with TAG
+[1670929239.774741] [UCX] created worker 0x7f11faef5010
+[1670929239.774783] [UCX-connection 0x17ef4c0: #1 0.0.0.0:0] created new connection 0x17ef4c0 total: 1
+[1670929239.774788] [UCX-connection 0x17ef4c0: #1 192.168.1.13:1337] Connecting to 192.168.1.13:1337
+[1670929239.774869] [UCX-connection 0x17ef4c0: #1 192.168.1.13:1337] created endpoint 0x7f11fadb1000, connection id 1
+[1670929239.774877] [UCX] added [UCX-connection 0x17ef4c0: #1 192.168.1.13:1337] to connection map
+[1670929239.797071] [UCX-connection 0x17ef4c0: #1 192.168.1.13:1337] Remote id is 949, endpoint 0x7f11fadb1000, local address 192.168.1.14:45776 remote address 192.168.1.13:1337
+[1670929239.797083] [DEMO] Connected to server [0] 192.168.1.13 after 1 attempts
+[1670929239.797132] [DEMO] total min:1 max:1 total:1 | read 0 MBs min:0(192.168.1.13) max:0 total:0 | write 0.34941 MBs min:1(192.168.1.13) max:1 total:1 | active:1/1 buffers:1
+[1670929239.797144] [DEMO] disconnecting [UCX-connection 0x17ef4c0: #1 192.168.1.13:1337] read 0/0 write 0/0 due to "End of the Client run"
+[1670929239.797174] [UCX-connection 0x17ef4c0: #1 192.168.1.13:1337] disconnect, ep is 0x7f11fadb1000
+[1670929239.797177] [UCX] removed [UCX-connection 0x17ef4c0: #1 192.168.1.13:1337] from connection map
+[1670929239.797179] [UCX-connection 0x17ef4c0: #1 192.168.1.13:1337] <UcxContext::remove_connection> used 3us
+[1670929239.797180] [UCX-connection 0x17ef4c0: #1 192.168.1.13:1337] <UcxConnection::established> used 0us
+[1670929239.797182] [UCX-connection 0x17ef4c0: #1 192.168.1.13:1337] <UcxConnection::cancel_all> used 0us
+[1670929239.797184] [UCX-connection 0x17ef4c0: #1 192.168.1.13:1337] closing ep 0x7f11fadb1000 mode force
+[1670929239.797198] [gen-mtvr-14:326301:0]          ucp_ep.c:1687 UCX  WARN  <ucp_ep_close_nbx> used 8us
+[1670929239.797202] [UCX-connection 0x17ef4c0: #1 192.168.1.13:1337] <UcxConnection::ep_close> used 17us
+[1670929239.797203] [DEMO] waiting for 1 disconnects to complete
+[1670929239.797315] [UCX-connection 0x17ef4c0: #1 192.168.1.13:1337] disconnection completed
+[1670929239.797319] [UCX-connection 0x17ef4c0: #1 192.168.1.13:1337] released
+[1670929239.797321] [DEMO] Client exit with status 'OK'
+[1670929239.797323] [DEMO] <connect>
+22311 
+</connect>
+
+
+[1670929239.797325] [DEMO] <disconnect>
+171 
+</disconnect>
+
+
+[1670929239.797333] [UCX] iomsg receive request 0x18f1048 failed: Request canceled
+[1670929239.890885] [DEMO] Starting io_demo pid 326316 on gen-mtvr-14
+[1670929239.890904] [DEMO] Command line: /.autodirect/swgwork/zizhao/code/openucx/ucx/test/apps/iodemo/.libs/lt-io_demo -d 8192 -L4 -i 1 192.168.1.13 
+[1670929239.890909] [DEMO] UCX library path: /.autodirect/swgwork/zizhao/code/openucx/ucx/test/apps/iodemo/.libs/lt-io_demo
+[1670929239.890916] [DEMO] random seed: 1671209467
+[1670929239.926704] [UCX] created context 0x1c4f4b0 with TAG
+[1670929240.055328] [UCX] created worker 0x7f0409eb6010
+[1670929240.055373] [UCX-connection 0x1c624c0: #1 0.0.0.0:0] created new connection 0x1c624c0 total: 1
+[1670929240.055382] [UCX-connection 0x1c624c0: #1 192.168.1.13:1337] Connecting to 192.168.1.13:1337
+[1670929240.055464] [UCX-connection 0x1c624c0: #1 192.168.1.13:1337] created endpoint 0x7f0409d72000, connection id 1
+[1670929240.055473] [UCX] added [UCX-connection 0x1c624c0: #1 192.168.1.13:1337] to connection map
+[1670929240.084351] [UCX-connection 0x1c624c0: #1 192.168.1.13:1337] Remote id is 950, endpoint 0x7f0409d72000, local address 192.168.1.14:53265 remote address 192.168.1.13:1337
+[1670929240.084364] [DEMO] Connected to server [0] 192.168.1.13 after 1 attempts
+[1670929240.084414] [DEMO] total min:1 max:1 total:1 | read 0 MBs min:0(192.168.1.13) max:0 total:0 | write 0.268932 MBs min:1(192.168.1.13) max:1 total:1 | active:1/1 buffers:1
+[1670929240.084425] [DEMO] disconnecting [UCX-connection 0x1c624c0: #1 192.168.1.13:1337] read 0/0 write 0/0 due to "End of the Client run"
+[1670929240.084466] [UCX-connection 0x1c624c0: #1 192.168.1.13:1337] disconnect, ep is 0x7f0409d72000
+[1670929240.084469] [UCX] removed [UCX-connection 0x1c624c0: #1 192.168.1.13:1337] from connection map
+[1670929240.084471] [UCX-connection 0x1c624c0: #1 192.168.1.13:1337] <UcxContext::remove_connection> used 3us
+[1670929240.084472] [UCX-connection 0x1c624c0: #1 192.168.1.13:1337] <UcxConnection::established> used 0us
+[1670929240.084475] [UCX-connection 0x1c624c0: #1 192.168.1.13:1337] <UcxConnection::cancel_all> used 0us
+[1670929240.084477] [UCX-connection 0x1c624c0: #1 192.168.1.13:1337] closing ep 0x7f0409d72000 mode force
+[1670929240.084491] [gen-mtvr-14:326316:0]          ucp_ep.c:1687 UCX  WARN  <ucp_ep_close_nbx> used 8us
+[1670929240.084495] [UCX-connection 0x1c624c0: #1 192.168.1.13:1337] <UcxConnection::ep_close> used 18us
+[1670929240.084497] [DEMO] waiting for 1 disconnects to complete
+[1670929240.085966] [UCX-connection 0x1c624c0: #1 192.168.1.13:1337] disconnection completed
+[1670929240.085970] [UCX-connection 0x1c624c0: #1 192.168.1.13:1337] released
+[1670929240.085972] [DEMO] Client exit with status 'OK'
+[1670929240.085974] [DEMO] <connect>
+29002 
+</connect>
+
+
+[1670929240.085976] [DEMO] <disconnect>
+1541 
+</disconnect>
+
+
+[1670929240.085985] [UCX] iomsg receive request 0x1d64048 failed: Request canceled
+[1670929240.189737] [DEMO] Starting io_demo pid 326331 on gen-mtvr-14
+[1670929240.189757] [DEMO] Command line: /.autodirect/swgwork/zizhao/code/openucx/ucx/test/apps/iodemo/.libs/lt-io_demo -d 8192 -L4 -i 1 192.168.1.13 
+[1670929240.189762] [DEMO] UCX library path: /.autodirect/swgwork/zizhao/code/openucx/ucx/test/apps/iodemo/.libs/lt-io_demo
+[1670929240.189768] [DEMO] random seed: 1671209443
+[1670929240.220608] [UCX] created context 0xe114b0 with TAG
+[1670929240.345600] [UCX] created worker 0x7f09d5844010
+[1670929240.345642] [UCX-connection 0xe1fda0: #1 0.0.0.0:0] created new connection 0xe1fda0 total: 1
+[1670929240.345647] [UCX-connection 0xe1fda0: #1 192.168.1.13:1337] Connecting to 192.168.1.13:1337
+[1670929240.345729] [UCX-connection 0xe1fda0: #1 192.168.1.13:1337] created endpoint 0x7f09d5700000, connection id 1
+[1670929240.345737] [UCX] added [UCX-connection 0xe1fda0: #1 192.168.1.13:1337] to connection map
+[1670929240.371024] [UCX-connection 0xe1fda0: #1 192.168.1.13:1337] Remote id is 951, endpoint 0x7f09d5700000, local address 192.168.1.14:52040 remote address 192.168.1.13:1337
+[1670929240.371036] [DEMO] Connected to server [0] 192.168.1.13 after 1 attempts
+[1670929240.371084] [DEMO] total min:1 max:1 total:1 | read 0 MBs min:0(192.168.1.13) max:0 total:0 | write 0.306963 MBs min:1(192.168.1.13) max:1 total:1 | active:1/1 buffers:1
+[1670929240.371095] [DEMO] disconnecting [UCX-connection 0xe1fda0: #1 192.168.1.13:1337] read 0/0 write 0/0 due to "End of the Client run"
+[1670929240.371124] [UCX-connection 0xe1fda0: #1 192.168.1.13:1337] disconnect, ep is 0x7f09d5700000
+[1670929240.371127] [UCX] removed [UCX-connection 0xe1fda0: #1 192.168.1.13:1337] from connection map
+[1670929240.371128] [UCX-connection 0xe1fda0: #1 192.168.1.13:1337] <UcxContext::remove_connection> used 3us
+[1670929240.371134] [UCX-connection 0xe1fda0: #1 192.168.1.13:1337] <UcxConnection::established> used 0us
+[1670929240.371136] [UCX-connection 0xe1fda0: #1 192.168.1.13:1337] <UcxConnection::cancel_all> used 0us
+[1670929240.371138] [UCX-connection 0xe1fda0: #1 192.168.1.13:1337] closing ep 0x7f09d5700000 mode force
+[1670929240.371152] [gen-mtvr-14:326331:0]          ucp_ep.c:1687 UCX  WARN  <ucp_ep_close_nbx> used 8us
+[1670929240.371156] [UCX-connection 0xe1fda0: #1 192.168.1.13:1337] <UcxConnection::ep_close> used 18us
+[1670929240.371158] [DEMO] waiting for 1 disconnects to complete
+[1670929240.371270] [UCX-connection 0xe1fda0: #1 192.168.1.13:1337] disconnection completed
+[1670929240.371274] [UCX-connection 0xe1fda0: #1 192.168.1.13:1337] released
+[1670929240.371276] [DEMO] Client exit with status 'OK'
+[1670929240.371278] [DEMO] <connect>
+25405 
+</connect>
+
+
+[1670929240.371280] [DEMO] <disconnect>
+175 
+</disconnect>
+
+
+[1670929240.371289] [UCX] iomsg receive request 0xf26048 failed: Request canceled
+[1670929240.473726] [DEMO] Starting io_demo pid 326346 on gen-mtvr-14
+[1670929240.473747] [DEMO] Command line: /.autodirect/swgwork/zizhao/code/openucx/ucx/test/apps/iodemo/.libs/lt-io_demo -d 8192 -L4 -i 1 192.168.1.13 
+[1670929240.473752] [DEMO] UCX library path: /.autodirect/swgwork/zizhao/code/openucx/ucx/test/apps/iodemo/.libs/lt-io_demo
+[1670929240.473757] [DEMO] random seed: 1671209362
+[1670929240.507842] [UCX] created context 0x23de4b0 with TAG
+[1670929240.633207] [UCX] created worker 0x7fb2772ec010
+[1670929240.633248] [UCX-connection 0x23f14c0: #1 0.0.0.0:0] created new connection 0x23f14c0 total: 1
+[1670929240.633253] [UCX-connection 0x23f14c0: #1 192.168.1.13:1337] Connecting to 192.168.1.13:1337
+[1670929240.633341] [UCX-connection 0x23f14c0: #1 192.168.1.13:1337] created endpoint 0x7fb2771a8000, connection id 1
+[1670929240.633350] [UCX] added [UCX-connection 0x23f14c0: #1 192.168.1.13:1337] to connection map
+[1670929240.658009] [UCX-connection 0x23f14c0: #1 192.168.1.13:1337] Remote id is 952, endpoint 0x7fb2771a8000, local address 192.168.1.14:43390 remote address 192.168.1.13:1337
+[1670929240.658020] [DEMO] Connected to server [0] 192.168.1.13 after 1 attempts
+[1670929240.658071] [DEMO] total min:1 max:1 total:1 | read 0 MBs min:0(192.168.1.13) max:0 total:0 | write 0.314626 MBs min:1(192.168.1.13) max:1 total:1 | active:1/1 buffers:1
+[1670929240.658088] [DEMO] disconnecting [UCX-connection 0x23f14c0: #1 192.168.1.13:1337] read 0/0 write 0/0 due to "End of the Client run"
+[1670929240.658126] [UCX-connection 0x23f14c0: #1 192.168.1.13:1337] disconnect, ep is 0x7fb2771a8000
+[1670929240.658130] [UCX] removed [UCX-connection 0x23f14c0: #1 192.168.1.13:1337] from connection map
+[1670929240.658132] [UCX-connection 0x23f14c0: #1 192.168.1.13:1337] <UcxContext::remove_connection> used 4us
+[1670929240.658133] [UCX-connection 0x23f14c0: #1 192.168.1.13:1337] <UcxConnection::established> used 0us
+[1670929240.658136] [UCX-connection 0x23f14c0: #1 192.168.1.13:1337] <UcxConnection::cancel_all> used 0us
+[1670929240.658137] [UCX-connection 0x23f14c0: #1 192.168.1.13:1337] closing ep 0x7fb2771a8000 mode force
+[1670929240.658155] [gen-mtvr-14:326346:0]          ucp_ep.c:1687 UCX  WARN  <ucp_ep_close_nbx> used 7us
+[1670929240.658159] [UCX-connection 0x23f14c0: #1 192.168.1.13:1337] <UcxConnection::ep_close> used 22us
+[1670929240.658161] [DEMO] waiting for 1 disconnects to complete
+[1670929240.659668] [UCX-connection 0x23f14c0: #1 192.168.1.13:1337] disconnection completed
+[1670929240.659672] [UCX-connection 0x23f14c0: #1 192.168.1.13:1337] released
+[1670929240.659673] [DEMO] Client exit with status 'OK'
+[1670929240.659676] [DEMO] <connect>
+24783 
+</connect>
+
+
+[1670929240.659678] [DEMO] <disconnect>
+1578 
+</disconnect>
+
+
+[1670929240.659687] [UCX] iomsg receive request 0x24f3048 failed: Request canceled

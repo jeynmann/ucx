@@ -20,6 +20,7 @@
 
 #include <ucs/debug/memtrack.h>
 
+#include <timer.hpp>
 
 #define AM_MSG_ID 0
 
@@ -234,15 +235,45 @@ void UcxContext::progress(unsigned count)
 {
     int i = 0;
 
+    struct timeval ts;
+    struct timeval te;
+    long tusec[6];
+    long openlog = (state == State::closing);
+
+    gettimeofday(&ts, NULL);
     progress_worker_event();
+    gettimeofday(&te, NULL);
+    tusec[0] = te.tv_usec - ts.tv_usec;
+    gettimeofday(&ts, NULL);
     do {
         progress_io_message();
     } while ((++i < count) && progress_worker_event());
-
+    gettimeofday(&te, NULL);
+    tusec[1] = te.tv_usec - ts.tv_usec;
+    gettimeofday(&ts, NULL);
     progress_timed_out_conns();
+    gettimeofday(&te, NULL);
+    tusec[2] = te.tv_usec - ts.tv_usec;
+    gettimeofday(&ts, NULL);
     progress_conn_requests();
+    gettimeofday(&te, NULL);
+    tusec[3] = te.tv_usec - ts.tv_usec;
+    gettimeofday(&ts, NULL);
     progress_failed_connections();
+    gettimeofday(&te, NULL);
+    tusec[4] = te.tv_usec - ts.tv_usec;
+    gettimeofday(&ts, NULL);
     progress_disconnected_connections();
+    gettimeofday(&te, NULL);
+    tusec[5] = te.tv_usec - ts.tv_usec;
+    if (openlog) {
+        printf("<progress_worker_event> %ldus\n", tusec[0]);
+        printf("<progress_io_message> %ldus\n", tusec[1]);
+        printf("<progress_timed_out_conns> %ldus\n", tusec[2]);
+        printf("<progress_conn_requests> %ldus\n", tusec[3]);
+        printf("<progress_failed_connections> %ldus\n", tusec[4]);
+        printf("<progress_disconnected_connections> %ldus\n", tusec[5]);
+    }
 }
 
 uint32_t UcxContext::get_next_conn_id()
@@ -485,13 +516,24 @@ void UcxContext::progress_failed_connections()
 void UcxContext::progress_disconnected_connections()
 {
     std::list<UcxConnection *>::iterator it = _disconnecting_conns.begin();
+    struct timeval ts;
+    struct timeval te;
     while (it != _disconnecting_conns.end()) {
         UcxConnection *conn = *it;
+        gettimeofday(&ts, NULL);
         if (conn->disconnect_progress()) {
             it = _disconnecting_conns.erase(it);
             delete conn;
+            if (closing && --closing == 0) {
+                state = UcxContext::State::closed;
+                timer::SystemTap::global().end_stap();
+            }
+            gettimeofday(&te, NULL);
+            printf("<disconnect_progress> %ldus\n", te.tv_usec - ts.tv_usec);
         } else {
             ++it;
+            gettimeofday(&te, NULL);
+            printf("<disconnect_progress> %ldus\n", te.tv_usec - ts.tv_usec);
         }
     }
 }
@@ -860,16 +902,25 @@ void UcxConnection::accept(ucp_conn_request_h conn_req, UcxCallback *callback)
 
 void UcxConnection::disconnect(UcxCallback *callback)
 {
+    struct timeval ts;
+    struct timeval te;
+
     UCX_CONN_LOG << "disconnect, ep is " << _ep;
 
     assert(_disconnect_cb == NULL);
     _disconnect_cb = callback;
 
+    gettimeofday(&ts, NULL);
     _context.remove_connection(this);
+    gettimeofday(&te, NULL);
+    printf("<remove_connection> %ldus\n", te.tv_usec - ts.tv_usec);
 
     if (!is_established()) {
+        gettimeofday(&ts, NULL);
         assert(_ucx_status == UCS_INPROGRESS);
         established(UCS_ERR_CANCELED);
+        gettimeofday(&te, NULL);
+        printf("<established> %ldus\n", te.tv_usec - ts.tv_usec);
     } else if (_ucx_status == UCS_OK) {
         _ucx_status = UCS_ERR_NOT_CONNECTED;
     }
@@ -878,11 +929,17 @@ void UcxConnection::disconnect(UcxCallback *callback)
 
     _context.move_connection_to_disconnecting(this);
 
+    // gettimeofday(&ts, NULL);
     cancel_all();
+    // gettimeofday(&te, NULL);
+    // printf("<cancel_all> %ldus\n", te.tv_usec - ts.tv_usec);
 
     // close the EP after cancelling all outstanding operations to purge all
     // requests scheduled on the EP which could wait for the acknowledgments
+    gettimeofday(&ts, NULL);
     ep_close(UCP_EP_CLOSE_MODE_FORCE);
+    gettimeofday(&te, NULL);
+    printf("<ep_close> %ldus\n", te.tv_usec - ts.tv_usec);
 }
 
 bool UcxConnection::disconnect_progress()
@@ -897,8 +954,13 @@ bool UcxConnection::disconnect_progress()
         if (ucp_request_check_status(_close_request) == UCS_INPROGRESS) {
             return false;
         } else {
+            struct timeval ts;
+            struct timeval te;
+            gettimeofday(&ts, NULL);
             ucp_request_free(_close_request);
             _close_request = NULL;
+            gettimeofday(&te, NULL);
+            printf("<ucp_request_free> %ldus\n", te.tv_usec - ts.tv_usec);
         }
     }
 

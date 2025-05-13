@@ -97,6 +97,7 @@ class UcxContext {
         UcxAcceptCallback(UcxContext &context, UcxConnection &connection);
 
         virtual void operator()(ucs_status_t status);
+        
 
     private:
         UcxContext    &_context;
@@ -111,6 +112,17 @@ protected:
 
 public:
     typedef std::vector<uint8_t> iomsg_buffer_t;
+    enum class State {
+        start = 0,
+        initializing = 1,
+        initialized = 2,
+        connecting = 4,
+        connected = 8,
+        closing = 32,
+        closed = 64,
+    } state = State::start;
+    size_t connecting = 0;
+    size_t closing = 0;
 
     static const uint64_t CLIENT_ID_UNDEFINED = 0;
     static ucp_request_param_t recv_param;
