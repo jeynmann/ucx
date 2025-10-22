@@ -1,0 +1,20 @@
+# Build options for UCT Device Hello World example
+
+option('cuda_arch',
+    type: 'string',
+    value: 'auto',
+    description: 'CUDA architecture to compile for (e.g., sm_80, sm_86). Use "auto" for common architectures.'
+)
+
+option('ucx_prefix',
+    type: 'string',
+    value: '',
+    description: 'Custom UCX installation prefix (if not in standard location)'
+)
+
+option('enable_debug',
+    type: 'boolean',
+    value: false,
+    description: 'Enable debug symbols and verbose output'
+)
+
