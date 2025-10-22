@@ -232,4 +232,10 @@ AS_IF([test "x$cuda_checked" != "xyes"],
         UCX_CUDA_CHECK_NVCC
    ]) # "x$cuda_checked" != "xyes"
 
+   # Set stubs include path for pkg-config
+   # Always include stubs path since UCX Device API headers are always installed
+   # and they include <uct/ib/mlx5/gdaki/gdaki.cuh> which needs stub headers
+   STUB_CFLAGS="-I\${includedir}/stubs"
+   AC_SUBST([STUB_CFLAGS])
+
 ]) # UCX_CHECK_CUDA
