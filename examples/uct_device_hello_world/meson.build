@@ -26,6 +26,11 @@ endif
 cuda_dep = dependency('cuda', version: '>=10.0', required: true)
 deps += [cuda_dep]
 
+# Optional (try to find, don't fail if missing)
+gdrcopy_dep = dependency('gdrcopy', required: false)
+gpunetio_dep = dependency('doca-gpunetio', required: false)
+deps += [gdrcopy_dep, gpunetio_dep]
+
 # NVCC compiler args
 nvcc_args = [
     '-gencode', 'arch=compute_70,code=sm_70',  # Volta
