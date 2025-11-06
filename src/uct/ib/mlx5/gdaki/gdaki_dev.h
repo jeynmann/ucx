@@ -16,11 +16,12 @@ typedef struct {
 
     uint64_t                     sq_rsvd_index;
     uint64_t                     sq_ready_index;
+    uint64_t                     sq_db_index;
     int                          sq_lock;
     uint32_t                     sq_num;
 
     uint64_t                     *sq_db;
-    uint8_t                      pad[16];
+    uint8_t                      pad[8];
 } uct_rc_gdaki_dev_qp_t;
 
 
