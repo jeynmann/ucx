@@ -1202,6 +1202,7 @@ ucs_status_t ucp_ep_create(ucp_worker_h worker, const ucp_ep_params_t *params,
 
     UCS_ASYNC_BLOCK(&worker->async);
 
+    UCS_PROFILE_CODE("ucp_ep_create", {
     if (flags & UCP_EP_PARAMS_FLAGS_CLIENT_SERVER) {
         status = ucp_ep_create_to_sock_addr(worker, params, &ep);
     } else if (params->field_mask & UCP_EP_PARAM_FIELD_CONN_REQUEST) {
@@ -1230,6 +1231,7 @@ ucs_status_t ucp_ep_create(ucp_worker_h worker, const ucp_ep_params_t *params,
         ++worker->counters.ep_creation_failures;
     }
     ++worker->counters.ep_creations;
+    });
 
     UCS_ASYNC_UNBLOCK(&worker->async);
     return status;

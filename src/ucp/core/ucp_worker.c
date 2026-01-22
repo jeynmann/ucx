@@ -1412,8 +1412,10 @@ ucs_status_t ucp_worker_iface_open(ucp_worker_h worker, ucp_rsc_index_t tl_id,
     iface_params.features    = ucp_worker_get_uct_features(context);
 
     /* Open UCT interface */
+    UCS_PROFILE_CODE("uct_iface_open", {
     status = uct_iface_open(md, worker->uct, &iface_params, iface_config,
                             &wiface->iface);
+    });
     uct_config_release(iface_config);
 
     if (status != UCS_OK) {
@@ -2485,9 +2487,12 @@ static void ucp_worker_usage_tracker_destroy(ucp_worker_h worker)
     ucs_usage_tracker_destroy(worker->usage_tracker.handle);
 }
 
-ucs_status_t ucp_worker_create(ucp_context_h context,
-                               const ucp_worker_params_t *params,
-                               ucp_worker_h *worker_p)
+//ucs_status_t ucp_worker_create(ucp_context_h context,
+//                               const ucp_worker_params_t *params,
+//                               ucp_worker_h *worker_p)
+UCS_PROFILE_FUNC(ucs_status_t, ucp_worker_create, (context,params,worker_p),
+                 ucp_context_h context, const ucp_worker_params_t *params,
+                 ucp_worker_h *worker_p)
 {
     ucs_thread_mode_t thread_mode, uct_thread_mode;
     unsigned name_length;

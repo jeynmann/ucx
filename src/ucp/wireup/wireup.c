@@ -1854,9 +1854,11 @@ ucs_status_t ucp_wireup_init_lanes(ucp_ep_h ep, unsigned ep_init_flags,
     }
 
     ucs_queue_head_init(&replay_pending_queue);
+    UCS_PROFILE_CODE("ucp_wireup_try_select_lanes", {
     status = ucp_wireup_try_select_lanes(ep, ep_init_flags, &tl_bitmap,
                                          remote_address, addr_indices, &key,
                                          dst_mds_mem);
+    });
     if (status != UCS_OK) {
         goto out;
     }
@@ -1885,9 +1887,11 @@ ucs_status_t ucp_wireup_init_lanes(ucp_ep_h ep, unsigned ep_init_flags,
         }
         UCS_STATIC_BITMAP_AND_INPLACE(&tl_bitmap, current_tl_bitmap);
 
+        UCS_PROFILE_CODE("ucp_wireup_try_select_lanes_2", {
         status = ucp_wireup_try_select_lanes(ep, ep_init_flags, &tl_bitmap,
                                              remote_address, addr_indices, &key,
                                              dst_mds_mem);
+        });
         if (status != UCS_OK) {
             goto out;
         }
@@ -1898,18 +1902,22 @@ ucs_status_t ucp_wireup_init_lanes(ucp_ep_h ep, unsigned ep_init_flags,
         ucp_wireup_gather_pending_requests(ep, &replay_pending_queue);
     }
 
+//    UCS_PROFILE_CODE("ucp_wireup_check_config_intersect", {
     status = ucp_wireup_check_config_intersect(ep, &key, remote_address,
                                                addr_indices,
                                                &connect_lane_bitmap,
                                                &replay_pending_queue,
                                                am_need_flush_p);
+//    });
     if (status != UCS_OK) {
         goto out;
     }
 
     /* Load new configuration */
+//    UCS_PROFILE_CODE("ucp_worker_get_ep_config", {
     status = ucp_worker_get_ep_config(worker, &key, ep_init_flags,
                                       &new_cfg_index);
+//    });
     if (status != UCS_OK) {
         goto out;
     }
@@ -1954,15 +1962,17 @@ ucs_status_t ucp_wireup_init_lanes(ucp_ep_h ep, unsigned ep_init_flags,
                             addr_indices, cm_idx, UCS_LOG_LEVEL_DEBUG);
 
     /* establish connections on all underlying endpoints */
+    UCS_PROFILE_CODE("ucp_wireup_connect_lane_loop", {
     for (lane = 0; lane < ucp_ep_num_lanes(ep); ++lane) {
         if (ucp_ep_get_cm_lane(ep) == lane) {
             continue;
         }
 
         if (connect_lane_bitmap & UCS_BIT(lane)) {
-            status = ucp_wireup_connect_lane(ep, ep_init_flags, lane,
-                                             key.lanes[lane].path_index,
-                                             remote_address, addr_indices[lane]);
+            status = UCS_PROFILE_CALL(ucp_wireup_connect_lane,
+                                      ep, ep_init_flags, lane,
+                                      key.lanes[lane].path_index,
+                                      remote_address, addr_indices[lane]);
             if (status != UCS_OK) {
                 goto out;
             }
@@ -1970,6 +1980,7 @@ ucs_status_t ucp_wireup_init_lanes(ucp_ep_h ep, unsigned ep_init_flags,
 
         ucs_assert(ucp_ep_get_lane(ep, lane) != NULL);
     }
+    });
 
     /* If we don't have a p2p transport, we're connected */
     if (!ucp_ep_config(ep)->p2p_lanes) {

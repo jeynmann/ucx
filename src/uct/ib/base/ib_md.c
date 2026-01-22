@@ -873,6 +873,7 @@ uct_ib_base_query_md_resources(uct_md_resource_desc_t **resources_p,
         goto out_free_device_list;
     }
 
+    UCS_PROFILE_CODE("uct_ib_base_query_md_resources", {
     for (i = 0; i < num_devices; ++i) {
         /* Skip non-existent and non-accessible devices */
         if (!uct_ib_device_is_accessible(device_list[i])) {
@@ -889,6 +890,7 @@ uct_ib_base_query_md_resources(uct_md_resource_desc_t **resources_p,
                           "%s", ibv_get_device_name(device_list[i]));
         num_resources++;
     }
+    });
 
     *resources_p     = resources;
     *num_resources_p = num_resources;

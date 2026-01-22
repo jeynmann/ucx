@@ -1297,7 +1297,9 @@ ucp_add_tl_resources(ucp_context_h context, ucp_md_index_t md_index,
     *num_resources_p = 0;
 
     /* check what are the available uct resources */
+    UCS_PROFILE_CODE("uct_md_query_tl_resources", {
     status = uct_md_query_tl_resources(md->md, &tl_resources, &num_tl_resources);
+    });
     if (status != UCS_OK) {
         ucs_error("Failed to query resources: %s", ucs_status_string(status));
         goto out;
@@ -1325,6 +1327,7 @@ ucp_add_tl_resources(ucp_context_h context, ucp_md_index_t md_index,
 
     /* copy only the resources enabled by user configuration */
     context->tl_rscs = tmp;
+    UCS_PROFILE_CODE("ucp_add_tl_resource_if_enabled", {
     for (i = 0; i < num_tl_resources; ++i) {
         ucs_string_set_addf(&avail_devices[tl_resources[i].dev_type],
                             "'%s'(%s)", tl_resources[i].dev_name,
@@ -1334,6 +1337,7 @@ ucp_add_tl_resources(ucp_context_h context, ucp_md_index_t md_index,
                                        &tl_resources[i], num_resources_p,
                                        dev_cfg_masks, tl_cfg_mask);
     }
+    });
 
     status = UCS_OK;
 free_resources:
@@ -1496,8 +1500,10 @@ static ucs_status_t ucp_fill_tl_md(ucp_context_h context,
 
     ucp_apply_uct_config_list(context, md_config);
 
+    UCS_PROFILE_CODE("uct_md_open", {
     status = uct_md_open(context->tl_cmpts[cmpt_index].cmpt, md_rsc->md_name,
                          md_config, &tl_md->md);
+    });
     uct_config_release(md_config);
     if (status != UCS_OK) {
         return status;
@@ -1949,10 +1955,12 @@ static ucs_status_t ucp_fill_resources(ucp_context_h context,
         goto out_cleanup_avail_devices;
     }
 
+//    UCS_PROFILE_CODE("query_components", {
     status = uct_query_components(&uct_components, &num_uct_components);
     if (status != UCS_OK) {
         goto out_cleanup_avail_devices;
     }
+//    });
 
     if (num_uct_components > UCP_MAX_RESOURCES) {
         ucs_error("too many components: %u, max: %u", num_uct_components,
@@ -1972,6 +1980,7 @@ static ucs_status_t ucp_fill_resources(ucp_context_h context,
     UCS_STATIC_BITMAP_RESET_ALL(&context->config.cm_cmpts_bitmap);
 
     max_mds = 0;
+    UCS_PROFILE_CODE("uct_component_query_loop", {
     for (i = 0; i < context->num_cmpts; ++i) {
         context->tl_cmpts[i].cmpt = uct_components[i];
         context->tl_cmpts[i].attr.field_mask =
@@ -1990,6 +1999,7 @@ static ucs_status_t ucp_fill_resources(ucp_context_h context,
 
         max_mds += context->tl_cmpts[i].attr.md_resource_count;
     }
+    });
 
     /* Allocate actual array of MDs */
     context->tl_mds = ucs_calloc(max_mds, sizeof(*context->tl_mds),
@@ -2000,6 +2010,7 @@ static ucs_status_t ucp_fill_resources(ucp_context_h context,
     }
 
     /* Collect resources of each component */
+    UCS_PROFILE_CODE("ucp_add_component_resources_loop", {
     for (i = 0; i < context->num_cmpts; ++i) {
         status = ucp_add_component_resources(context, i, avail_devices,
                                              &avail_tls, dev_cfg_masks,
@@ -2008,6 +2019,7 @@ static ucs_status_t ucp_fill_resources(ucp_context_h context,
             goto err_free_resources;
         }
     }
+    });
 
     ucp_fill_resources_reg_md_map_update(context);
 
@@ -2465,9 +2477,13 @@ ucp_version_check(unsigned api_major_version, unsigned api_minor_version)
     }
 }
 
-ucs_status_t ucp_init_version(unsigned api_major_version, unsigned api_minor_version,
-                              const ucp_params_t *params, const ucp_config_t *config,
-                              ucp_context_h *context_p)
+//ucs_status_t ucp_init_version(unsigned api_major_version, unsigned api_minor_version,
+//                              const ucp_params_t *params, const ucp_config_t *config,
+//                              ucp_context_h *context_p)
+UCS_PROFILE_FUNC(ucs_status_t, ucp_init_version, (api_major_version,api_minor_version,params,config,context_p),
+                 unsigned api_major_version, unsigned api_minor_version,
+                 const ucp_params_t *params, const ucp_config_t *config,
+                 ucp_context_h *context_p)
 {
     ucp_config_t *dfl_config = NULL;
     ucp_context_t *context;

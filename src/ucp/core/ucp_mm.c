@@ -1070,8 +1070,11 @@ ucp_memh_import(ucp_context_h context, const void *export_mkey_buffer,
  * |           | len >0 |           |     |     |     |  (hint)   |     | (fixed)   |
  * |--------------------------------------------------------------------------------|
  */
-ucs_status_t ucp_mem_map(ucp_context_h context, const ucp_mem_map_params_t *params,
-                         ucp_mem_h *memh_p)
+//ucs_status_t ucp_mem_map(ucp_context_h context, const ucp_mem_map_params_t *params,
+//                         ucp_mem_h *memh_p)
+UCS_PROFILE_FUNC(ucs_status_t, ucp_mem_map, (context,params,memh_p),
+                 ucp_context_h context, const ucp_mem_map_params_t *params,
+                 ucp_mem_h *memh_p)
 {
     const char *alloc_name = "user memory";
     uint8_t memh_flags     = 0;
