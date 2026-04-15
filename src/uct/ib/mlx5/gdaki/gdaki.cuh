@@ -231,27 +231,33 @@ UCS_F_DEVICE void uct_rc_mlx5_gda_db(uct_rc_gdaki_dev_ep_t *ep, unsigned cid,
                                      uint64_t wqe_base, unsigned count,
                                      uint64_t flags)
 {
-    auto qp = uct_rc_mlx5_gda_get_qp(ep, cid);
-    cuda::atomic_ref<uint64_t, cuda::thread_scope_device> ref(
-            qp->sq_ready_index);
+    auto qp                 = uct_rc_mlx5_gda_get_qp(ep, cid);
     const uint64_t wqe_next = wqe_base + count;
     const bool skip_db      = !(flags & UCT_DEVICE_FLAG_NODELAY) &&
                               !((wqe_base ^ wqe_next) & 128);
 
-    __threadfence();
-    if (skip_db) {
-        doca_gpu_dev_common_mark_wqes_ready(qp->sq_ready_index, wqe_base, wqe_next - 1);
-    } else {
-        uint32_t qpn_ds = __ldg(&qp->qpn_ds);
-        auto *db_ptr = (uint64_t*)__ldg((uintptr_t*)&qp->sq_db);
-        auto dbrec_ptr = &ep->qps[cid].qp_dbrec[MLX5_SND_DBR];
+    doca_gpu_dev_common_mark_wqes_ready(qp->sq_ready_index, wqe_base,
+                                        wqe_next - 1);
 
-        while (READ_ONCE(qp->sq_ready_index) != wqe_base) {
+    if (!skip_db) {
+        doca_gpu_dev_verbs_lock<DOCA_GPUNETIO_VERBS_RESOURCE_SHARING_MODE_GPU>(
+                &qp->sq_lock);
+
+        uint64_t sq_db_index = doca_gpu_dev_verbs_atomic_max<
+                uint64_t, DOCA_GPUNETIO_VERBS_RESOURCE_SHARING_MODE_GPU, true>(
+                &qp->sq_db_index, wqe_next);
+        if (sq_db_index < wqe_next) {
+            uint32_t qpn_ds = __ldg(&qp->qpn_ds);
+            auto *db_ptr    = (uint64_t*)__ldg((uintptr_t*)&qp->sq_db);
+            auto dbrec_ptr  = &ep->qps[cid].qp_dbrec[MLX5_SND_DBR];
+
+            doca_gpu_dev_common_ring_db(db_ptr, qpn_ds, wqe_next);
+            doca_gpu_dev_common_update_dbr(dbrec_ptr, wqe_next);
+            doca_gpu_dev_common_ring_db(db_ptr, qpn_ds, wqe_next);
         }
-        doca_gpu_dev_common_ring_db(db_ptr, qpn_ds, wqe_next);
-        doca_gpu_dev_common_update_dbr(dbrec_ptr, wqe_next);
-        doca_gpu_dev_common_ring_db(db_ptr, qpn_ds, wqe_next);
-        ref.store(wqe_next, cuda::std::memory_order_release);
+
+        doca_gpu_dev_verbs_unlock<DOCA_GPUNETIO_VERBS_RESOURCE_SHARING_MODE_GPU>(
+                &qp->sq_lock);
     }
 }
 
