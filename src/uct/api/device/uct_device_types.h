@@ -53,6 +53,13 @@ typedef enum {
 } uct_device_flags_t;
 
 
+typedef enum {
+    UCT_DEVICE_LOCALITY_AUTO  = 0,
+    UCT_DEVICE_LOCALITY_INTER = 1,
+    UCT_DEVICE_LOCALITY_INTRA = 2
+} uct_device_locality_t;
+
+
 /* Device transport id (for internal use) */
 typedef enum {
     UCT_DEVICE_TL_RC_MLX5_GDA,

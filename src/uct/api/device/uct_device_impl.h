@@ -68,7 +68,8 @@ union uct_device_completion {
  * @return UCS_OK             - Operation completed successfully.
  * @return Error code as defined by @ref ucs_status_t
  */
-template<ucs_device_level_t level>
+template<ucs_device_level_t level,
+         uct_device_locality_t locality = UCT_DEVICE_LOCALITY_AUTO>
 UCS_F_DEVICE ucs_status_t uct_device_ep_put(
         uct_device_ep_h device_ep, const uct_device_mem_elem_t *src_uct_elem,
         const uct_device_mem_elem_t *mem_elem, const void *address,
@@ -76,14 +77,18 @@ UCS_F_DEVICE ucs_status_t uct_device_ep_put(
         uint64_t flags, uct_device_completion_t *comp)
 {
 #if UCT_RC_MLX5_GDA_SUPPORTED
-    if (device_ep->uct_tl_id == UCT_DEVICE_TL_RC_MLX5_GDA) {
+    if ((locality == UCT_DEVICE_LOCALITY_INTER) ||
+        ((locality == UCT_DEVICE_LOCALITY_AUTO) &&
+         (device_ep->uct_tl_id == UCT_DEVICE_TL_RC_MLX5_GDA))) {
         return uct_rc_mlx5_gda_ep_put<level>(device_ep, src_uct_elem, mem_elem,
                                              address, remote_address, length,
                                              channel_id, flags, comp);
     }
 #endif
 #if UCT_CUDA_IPC_SUPPORTED
-    if (device_ep->uct_tl_id == UCT_DEVICE_TL_CUDA_IPC) {
+    if ((locality == UCT_DEVICE_LOCALITY_INTRA) ||
+       ((locality == UCT_DEVICE_LOCALITY_AUTO) &&
+        (device_ep->uct_tl_id == UCT_DEVICE_TL_CUDA_IPC))) {
         return uct_cuda_ipc_ep_put<level>(device_ep, mem_elem, address,
                                           remote_address, length, flags, comp);
     }
@@ -120,21 +125,26 @@ UCS_F_DEVICE ucs_status_t uct_device_ep_put(
  * @return UCS_OK              - Operation completed successfully.
  * @return Error code as defined by @ref ucs_status_t
  */
-template<ucs_device_level_t level>
+template<ucs_device_level_t level,
+         uct_device_locality_t locality = UCT_DEVICE_LOCALITY_AUTO>
 UCS_F_DEVICE ucs_status_t uct_device_ep_atomic_add(
         uct_device_ep_h device_ep, const uct_device_mem_elem_t *mem_elem,
         uint64_t inc_value, uint64_t remote_address, unsigned channel_id,
         uint64_t flags, uct_device_completion_t *comp)
 {
 #if UCT_RC_MLX5_GDA_SUPPORTED
-    if (device_ep->uct_tl_id == UCT_DEVICE_TL_RC_MLX5_GDA) {
+    if ((locality == UCT_DEVICE_LOCALITY_INTER) ||
+        ((locality == UCT_DEVICE_LOCALITY_AUTO) &&
+         (device_ep->uct_tl_id == UCT_DEVICE_TL_RC_MLX5_GDA))) {
         return uct_rc_mlx5_gda_ep_atomic_add<level>(device_ep, mem_elem,
                                                     inc_value, remote_address,
                                                     channel_id, flags, comp);
     }
 #endif
 #if UCT_CUDA_IPC_SUPPORTED
-    if (device_ep->uct_tl_id == UCT_DEVICE_TL_CUDA_IPC) {
+    if ((locality == UCT_DEVICE_LOCALITY_INTRA) ||
+        ((locality == UCT_DEVICE_LOCALITY_AUTO) &&
+         (device_ep->uct_tl_id == UCT_DEVICE_TL_CUDA_IPC))) {
         return uct_cuda_ipc_ep_atomic_add<level>(device_ep, mem_elem, inc_value,
                                                  remote_address, flags, comp);
     }
@@ -178,11 +188,14 @@ UCS_F_DEVICE ucs_status_t uct_device_ep_get_ptr(
  *
  * @param [in]  device_ep       Device endpoint to be used for the operation.
  */
-template<ucs_device_level_t level>
+template<ucs_device_level_t level,
+         uct_device_locality_t locality = UCT_DEVICE_LOCALITY_AUTO>
 UCS_F_DEVICE void uct_device_ep_progress(uct_device_ep_h device_ep)
 {
 #if UCT_RC_MLX5_GDA_SUPPORTED
-    if (device_ep->uct_tl_id == UCT_DEVICE_TL_RC_MLX5_GDA) {
+    if ((locality == UCT_DEVICE_LOCALITY_INTER) ||
+        ((locality == UCT_DEVICE_LOCALITY_AUTO) &&
+         (device_ep->uct_tl_id == UCT_DEVICE_TL_RC_MLX5_GDA))) {
         uct_rc_mlx5_gda_ep_progress<level>(device_ep);
     }
 #endif
@@ -201,12 +214,15 @@ UCS_F_DEVICE void uct_device_ep_progress(uct_device_ep_h device_ep)
  * @return UCS_INPROGRESS   - No progress on the endpoint.
  * @return Error code as defined by @ref ucs_status_t
  */
-template<ucs_device_level_t level>
+template<ucs_device_level_t level,
+         uct_device_locality_t locality = UCT_DEVICE_LOCALITY_AUTO>
 UCS_F_DEVICE ucs_status_t uct_device_ep_check_completion(
         uct_device_ep_h device_ep, uct_device_completion_t *comp)
 {
 #if UCT_RC_MLX5_GDA_SUPPORTED
-    if (device_ep->uct_tl_id == UCT_DEVICE_TL_RC_MLX5_GDA) {
+    if ((locality == UCT_DEVICE_LOCALITY_INTER) ||
+        ((locality == UCT_DEVICE_LOCALITY_AUTO) &&
+         (device_ep->uct_tl_id == UCT_DEVICE_TL_RC_MLX5_GDA))) {
         return uct_rc_mlx5_gda_ep_check_completion<level>(device_ep, comp);
     }
 #endif

@@ -42,6 +42,17 @@ typedef enum {
 
 /**
  * @ingroup UCP_DEVICE
+ * @brief Compile-time locality hint for device transfer functions.
+ */
+typedef enum {
+    UCP_DEVICE_LOCALITY_AUTO  = UCT_DEVICE_LOCALITY_AUTO,
+    UCP_DEVICE_LOCALITY_INTER = UCT_DEVICE_LOCALITY_INTER,
+    UCP_DEVICE_LOCALITY_INTRA = UCT_DEVICE_LOCALITY_INTRA
+} ucp_device_locality_t;
+
+
+/**
+ * @ingroup UCP_DEVICE
  * @brief Check the parameters of the memory list handle.
  *
  * @param [in] mem_list_h  Memory list handle to check.
@@ -87,16 +98,19 @@ UCS_F_DEVICE void ucp_device_request_init(uct_device_ep_t *device_ep,
 /**
  * Macro for device put operations with retry logic
  */
-#define UCP_DEVICE_SEND_BLOCKING(_level, _uct_device_ep_send, _device_ep, \
-                                 _req, ...) \
+#define UCP_DEVICE_SEND_BLOCKING(_level, _locality, _uct_device_ep_send, \
+                                 _device_ep, _req, ...) \
     ({ \
         ucs_status_t _status; \
         do { \
-            _status = _uct_device_ep_send<_level>(_device_ep, __VA_ARGS__); \
+            _status = _uct_device_ep_send< \
+                    _level, (uct_device_locality_t)(_locality)>(_device_ep, \
+                                                                __VA_ARGS__); \
             if (_status != UCS_ERR_NO_RESOURCE) { \
                 break; \
             } \
-            uct_device_ep_progress<_level>(_device_ep); \
+            uct_device_ep_progress<_level, (uct_device_locality_t)(_locality)>( \
+                    _device_ep); \
         } while (1); \
         if (_req != nullptr) { \
             _req->status = _status; \
@@ -211,7 +225,8 @@ UCS_F_DEVICE ucs_status_t ucp_device_prepare_send(
  * @return UCS_OK             - Operation completed successfully.
  * @return Error code as defined by @ref ucs_status_t
  */
-template<ucs_device_level_t level = UCS_DEVICE_LEVEL_THREAD>
+template<ucs_device_level_t level = UCS_DEVICE_LEVEL_THREAD,
+         ucp_device_locality_t locality = UCP_DEVICE_LOCALITY_AUTO>
 UCS_F_DEVICE ucs_status_t
 ucp_device_put(const ucp_device_local_mem_list_h src_mem_list_h,
                unsigned src_mem_list_index, const size_t src_offset,
@@ -239,8 +254,8 @@ ucp_device_put(const ucp_device_local_mem_list_h src_mem_list_h,
         return status;
     }
 
-    return UCP_DEVICE_SEND_BLOCKING(level, uct_device_ep_put, device_ep, req,
-                                    src_uct_elem, uct_elem,
+    return UCP_DEVICE_SEND_BLOCKING(level, locality, uct_device_ep_put,
+                                    device_ep, req, src_uct_elem, uct_elem,
                                     UCS_PTR_BYTE_OFFSET(address, src_offset),
                                     remote_address + dst_offset, length,
                                     uct_channel_id, flags, comp);
@@ -279,7 +294,8 @@ ucp_device_put(const ucp_device_local_mem_list_h src_mem_list_h,
  * @return UCS_OK             - Operation completed successfully.
  * @return Error code as defined by @ref ucs_status_t
  */
-template<ucs_device_level_t level = UCS_DEVICE_LEVEL_THREAD>
+template<ucs_device_level_t level = UCS_DEVICE_LEVEL_THREAD,
+         ucp_device_locality_t locality = UCP_DEVICE_LOCALITY_AUTO>
 UCS_F_DEVICE ucs_status_t ucp_device_counter_inc(
         const uint64_t inc_value, const ucp_device_remote_mem_list_h mem_list_h,
         unsigned mem_list_index, size_t offset, unsigned channel_id,
@@ -302,8 +318,8 @@ UCS_F_DEVICE ucs_status_t ucp_device_counter_inc(
         return status;
     }
 
-    return UCP_DEVICE_SEND_BLOCKING(level, uct_device_ep_atomic_add, device_ep,
-                                    req, uct_elem, inc_value,
+    return UCP_DEVICE_SEND_BLOCKING(level, locality, uct_device_ep_atomic_add,
+                                    device_ep, req, uct_elem, inc_value,
                                     remote_address + offset, uct_channel_id,
                                     flags, comp);
 }
@@ -400,16 +416,19 @@ UCS_F_DEVICE void ucp_device_counter_write(void *counter_ptr, uint64_t value)
  *                            have not completed.
  * @return Error code as defined by @ref ucs_status_t
  */
-template<ucs_device_level_t level = UCS_DEVICE_LEVEL_THREAD>
+template<ucs_device_level_t level = UCS_DEVICE_LEVEL_THREAD,
+         ucp_device_locality_t locality = UCP_DEVICE_LOCALITY_AUTO>
 UCS_F_DEVICE ucs_status_t ucp_device_progress_req(ucp_device_request_t *req)
 {
     if (ucs_likely(req->status != UCS_INPROGRESS)) {
         return req->status;
     }
 
-    uct_device_ep_progress<level>(req->device_ep);
-    req->status = uct_device_ep_check_completion<level>(req->device_ep,
-                                                        &req->comp);
+    uct_device_ep_progress<level, (uct_device_locality_t)(locality)>(
+            req->device_ep);
+    req->status = uct_device_ep_check_completion<
+            level, (uct_device_locality_t)(locality)>(req->device_ep,
+                                                      &req->comp);
     return req->status;
 }
 
