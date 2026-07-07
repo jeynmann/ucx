@@ -73,9 +73,9 @@ typedef struct {
 
 /* Per-operation state retained while an RMA operation can be recovered. */
 typedef struct {
-    uct_completion_t comp;
     ucp_rkey_h       rkey;
     uint64_t         remote_addr;
+    uct_completion_t comp;
 } ucp_rma_op_t;
 
 

@@ -2939,6 +2939,15 @@ ucp_wireup_construct_lanes(const ucp_wireup_select_params_t *select_params,
     ucs_qsort_r(key->amo_lanes, UCP_MAX_LANES, sizeof(ucp_lane_index_t),
                 ucp_wireup_compare_lane_amo_score, select_ctx->lane_descs);
 
+    if ((key->err_mode == UCP_ERR_HANDLING_MODE_FAILOVER) &&
+        (key->am_lane == UCP_NULL_LANE)) {
+        if (key->am_bw_lanes[0] == UCP_NULL_LANE) {
+            return UCS_ERR_UNSUPPORTED;
+        }
+
+        key->am_lane = key->am_bw_lanes[0];
+    }
+
     /* Select lane for wireup messages, if: */
     if (/* - no CM support was requested */
         !ucp_ep_init_flags_has_cm(select_params->ep_init_flags) ||

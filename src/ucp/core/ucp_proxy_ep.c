@@ -58,6 +58,8 @@
 
 UCP_PROXY_EP_DEFINE_OP(ucs_status_t, put_short, const void*, unsigned,
                        uint64_t, uct_rkey_t)
+UCP_PROXY_EP_DEFINE_OP(ucs_status_t, put_short_ft, const void*, unsigned,
+                       uint64_t, uct_rkey_t, uct_completion_t*)
 UCP_PROXY_EP_DEFINE_OP(ssize_t, put_bcopy, uct_pack_callback_t, void*,
                        uint64_t, uct_rkey_t)
 UCP_PROXY_EP_DEFINE_OP(ucs_status_t, put_zcopy, const uct_iov_t*, size_t,
@@ -147,7 +149,7 @@ UCS_CLASS_INIT_FUNC(ucp_proxy_ep_t, const uct_iface_ops_t *ops, ucp_ep_h ucp_ep,
     self->is_owner    = is_owner;
 
     UCP_PROXY_EP_SET_OP(ep_put_short);
-    UCP_PROXY_EP_SET_OP(ep_put_short);
+    UCP_PROXY_EP_SET_OP(ep_put_short_ft);
     UCP_PROXY_EP_SET_OP(ep_put_bcopy);
     UCP_PROXY_EP_SET_OP(ep_put_zcopy);
     UCP_PROXY_EP_SET_OP(ep_get_bcopy);
