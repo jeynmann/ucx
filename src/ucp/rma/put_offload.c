@@ -11,6 +11,7 @@
 #include "rma.h"
 #include "rma.inl"
 
+#include <ucp/core/ucp_ep_failover.h>
 #include <ucp/core/ucp_request.inl>
 #include <ucp/dt/datatype_iter.inl>
 #include <ucp/proto/proto_init.h>
@@ -22,6 +23,18 @@
 static void ucp_proto_put_offload_ft_completion(uct_completion_t *comp);
 static ucp_rma_op_t *
 ucp_proto_put_offload_ft_op_create(ucp_rkey_h rkey, uint64_t remote_addr);
+
+static ucs_status_t
+ucp_proto_put_offload_handle_fence(ucp_ep_h ep, ucp_request_t *req,
+                                   ucp_lane_map_t lane_map, int failover)
+{
+    if (failover && (req->flags & UCP_REQUEST_FLAG_FENCE_REQUIRED) &&
+        ucp_ep_failover_pending_enqueue(ep, req)) {
+        return UCS_INPROGRESS;
+    }
+
+    return ucp_ep_rma_handle_fence(ep, req, lane_map);
+}
 
 static ucs_status_t
 ucp_proto_put_offload_short_progress_common(uct_pending_req_t *self,
@@ -36,14 +49,13 @@ ucp_proto_put_offload_short_progress_common(uct_pending_req_t *self,
     uct_rkey_t tl_rkey;
 
     if (!(req->flags & UCP_REQUEST_FLAG_PROTO_INITIALIZED)) {
-        /* A fence posted on the failed lane cannot be reconstructed when its
-         * following PUT is replayed on another lane. */
-        if (failover && (req->flags & UCP_REQUEST_FLAG_FENCE_REQUIRED)) {
-            ucp_proto_request_abort(req, UCS_ERR_UNSUPPORTED);
+        status = ucp_proto_put_offload_handle_fence(ep, req,
+                                                    UCS_BIT(spriv->super.lane),
+                                                    failover);
+        if (status == UCS_INPROGRESS) {
             return UCS_OK;
         }
 
-        status = ucp_ep_rma_handle_fence(ep, req, UCS_BIT(spriv->super.lane));
         if (status != UCS_OK) {
             ucp_proto_request_abort(req, status);
             return UCS_OK;
@@ -318,7 +330,8 @@ ucp_proto_put_offload_bcopy_ft_send_func(
 
 static ucs_status_t
 ucp_proto_put_offload_bcopy_request_init(ucp_request_t *req,
-                                         const ucp_proto_multi_priv_t *mpriv)
+                                         const ucp_proto_multi_priv_t *mpriv,
+                                         int failover)
 {
     ucs_status_t status;
 
@@ -326,14 +339,18 @@ ucp_proto_put_offload_bcopy_request_init(ucp_request_t *req,
         return UCS_OK;
     }
 
-    ucp_proto_multi_request_init(req);
+    status = ucp_proto_put_offload_handle_fence(req->send.ep, req,
+                                                mpriv->lane_map, failover);
+    if (status == UCS_INPROGRESS) {
+        return status;
+    }
 
-    status = ucp_ep_rma_handle_fence(req->send.ep, req, mpriv->lane_map);
     if (status != UCS_OK) {
         ucp_proto_request_abort(req, status);
         return status;
     }
 
+    ucp_proto_multi_request_init(req);
     req->flags |= UCP_REQUEST_FLAG_PROTO_INITIALIZED;
     return UCS_OK;
 }
@@ -344,7 +361,7 @@ ucp_proto_put_offload_bcopy_progress(uct_pending_req_t *self)
     ucp_request_t *req = ucs_container_of(self, ucp_request_t, send.uct);
     const ucp_proto_multi_priv_t *mpriv = req->send.proto_config->priv;
 
-    if (ucp_proto_put_offload_bcopy_request_init(req, mpriv) != UCS_OK) {
+    if (ucp_proto_put_offload_bcopy_request_init(req, mpriv, 0) != UCS_OK) {
         return UCS_OK;
     }
 
@@ -360,13 +377,7 @@ ucp_proto_put_offload_bcopy_ft_progress(uct_pending_req_t *self)
     ucp_request_t *req = ucs_container_of(self, ucp_request_t, send.uct);
     const ucp_proto_multi_priv_t *mpriv = req->send.proto_config->priv;
 
-    if (!(req->flags & UCP_REQUEST_FLAG_PROTO_INITIALIZED) &&
-        (req->flags & UCP_REQUEST_FLAG_FENCE_REQUIRED)) {
-        ucp_proto_request_abort(req, UCS_ERR_UNSUPPORTED);
-        return UCS_OK;
-    }
-
-    if (ucp_proto_put_offload_bcopy_request_init(req, mpriv) != UCS_OK) {
+    if (ucp_proto_put_offload_bcopy_request_init(req, mpriv, 1) != UCS_OK) {
         return UCS_OK;
     }
 

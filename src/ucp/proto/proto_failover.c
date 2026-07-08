@@ -412,6 +412,7 @@ ucs_status_t
 ucp_proto_failover_replay_op_progress(ucp_ep_h ep, ucp_lane_index_t failed_lane,
                                       ucp_proto_failover_replay_op_t *op)
 {
+    ucp_lane_index_t target_lane;
     ucs_status_t status;
 
     if (op->req == NULL) {
@@ -430,17 +431,19 @@ ucp_proto_failover_replay_op_progress(ucp_ep_h ep, ucp_lane_index_t failed_lane,
                               UCS_BIT(UCP_DATATYPE_CONTIG));
     ucp_request_complete_send(op->req, status);
     if (status == UCS_OK) {
+        target_lane = ((const ucp_proto_single_priv_t*)
+                               op->req->send.proto_config->priv)
+                              ->super.lane;
+
         if (((op->info.operation == UCT_EP_OP_PUT_SHORT) ||
              (op->info.operation == UCT_EP_OP_PUT_BCOPY)) &&
             (op->info.field_mask & UCT_EP_OP_INFO_FIELD_COMP)) {
             op->info.comp = NULL;
+            ep->ext->unflushed_lanes |= UCS_BIT(target_lane);
         }
 
         ucs_trace("ep %p: replayed failover op %d on lane %u", ep,
-                  (int)op->info.operation,
-                  ((const ucp_proto_single_priv_t*)
-                           op->req->send.proto_config->priv)
-                          ->super.lane);
+                  (int)op->info.operation, target_lane);
     }
 
     return status;

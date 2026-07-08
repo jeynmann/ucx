@@ -1627,8 +1627,7 @@ uct_ep_h ucp_wireup_extract_lane(ucp_ep_h ep, ucp_lane_index_t lane)
     }
 }
 
-static void
-ucp_wireup_replay_pending_request(uct_pending_req_t *self, ucp_ep_h ucp_ep)
+void ucp_wireup_replay_pending_request(uct_pending_req_t *self, ucp_ep_h ucp_ep)
 {
     ucp_request_t *req = ucs_container_of(self, ucp_request_t, send.uct);
 

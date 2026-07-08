@@ -34,6 +34,8 @@ ucp_ep_failover_add_lanes(ucp_ep_h ep, ucp_lane_map_t lane_map,
 
 void ucp_ep_failover_cancel_lanes(ucp_ep_h ep, ucp_lane_map_t lane_map);
 
+int ucp_ep_failover_pending_enqueue(ucp_ep_h ep, ucp_request_t *req);
+
 /** Enable failover extraction on eligible lanes before posting operations. */
 ucs_status_t ucp_ep_failover_enable_lanes(ucp_ep_h ep);
 

@@ -235,6 +235,9 @@ ucp_wireup_select_lanes(ucp_ep_h ep, unsigned ep_init_flags,
 void ucp_wireup_replay_pending_requests(ucp_ep_h ucp_ep,
                                         ucs_queue_head_t *tmp_pending_queue);
 
+void ucp_wireup_replay_pending_request(uct_pending_req_t *self,
+                                       ucp_ep_h ucp_ep);
+
 /* add flags to all wireup_ep->flags */
 void ucp_wireup_update_flags(ucp_ep_h ep, ucp_lane_map_t lanes,
                              uint32_t new_flags);
