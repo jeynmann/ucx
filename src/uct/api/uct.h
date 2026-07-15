@@ -2935,6 +2935,26 @@ UCT_INLINE_API ssize_t uct_ep_put_bcopy(uct_ep_h ep, uct_pack_callback_t pack_cb
     return ep->iface->ops.ep_put_bcopy(ep, pack_cb, arg, remote_addr, rkey);
 }
 
+/**
+ * @ingroup UCT_RMA
+ * @brief Buffered remote put with transport completion notification.
+ *
+ * This operation has the same local-buffer semantics as
+ * @ref uct_ep_put_bcopy. The completion is invoked when the transport no
+ * longer owns the posted operation.
+ *
+ * @note This operation is available on interfaces that support failover.
+ */
+UCT_INLINE_API ssize_t uct_ep_put_bcopy_ft(uct_ep_h ep,
+                                           uct_pack_callback_t pack_cb,
+                                           void *arg, uint64_t remote_addr,
+                                           uct_rkey_t rkey,
+                                           uct_completion_t *comp)
+{
+    return ep->iface->ops.ep_put_bcopy_ft(ep, pack_cb, arg, remote_addr, rkey,
+                                          comp);
+}
+
 
 /**
  * @ingroup UCT_RMA
