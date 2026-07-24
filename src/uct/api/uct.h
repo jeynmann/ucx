@@ -1488,7 +1488,7 @@ struct uct_ep_params {
     /**
      * Endpoint creation flags from @ref uct_ep_params_flags.
      */
-    uint64_t                                 flags;
+    uint64_t                            flags;
 };
 
 
