@@ -2923,6 +2923,25 @@ UCT_INLINE_API ucs_status_t uct_ep_put_short(uct_ep_h ep, const void *buffer, un
     return ep->iface->ops.ep_put_short(ep, buffer, length, remote_addr, rkey);
 }
 
+/**
+ * @ingroup UCT_RMA
+ * @brief Write short data to remote memory with completion tracking.
+ *
+ * This operation has the same data semantics as @ref uct_ep_put_short. The
+ * completion is invoked when the transport no longer owns the posted operation.
+ *
+ * @note This operation is available on interfaces that support failover.
+ */
+UCT_INLINE_API ucs_status_t uct_ep_put_short_ft(uct_ep_h ep, const void *buffer,
+                                                unsigned length,
+                                                uint64_t remote_addr,
+                                                uct_rkey_t rkey,
+                                                uct_completion_t *comp)
+{
+    return ep->iface->ops.ep_put_short_ft(ep, buffer, length, remote_addr, rkey,
+                                          comp);
+}
+
 
 /**
  * @ingroup UCT_RMA
