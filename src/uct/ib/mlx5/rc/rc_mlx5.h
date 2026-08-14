@@ -16,6 +16,8 @@
 #include <ucs/type/class.h>
 
 
+#define UCT_RC_MLX5_OPCODE_GFA 0x37
+
 #define UCT_RC_MLX5_CHECK_RES_PTR(_iface, _ep) \
     UCT_RC_CHECK_CQE_RET(&(_iface)->super, &(_ep)->super, \
                          UCS_STATUS_PTR(UCS_ERR_NO_RESOURCE)) \

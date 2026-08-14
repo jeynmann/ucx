@@ -23,6 +23,16 @@ typedef struct uct_ib_mlx5_ext_plugin {
 
 UCS_LIST_HEAD(uct_ib_mlx5_ext_plugins);
 
+static ucs_status_t uct_ib_mlx5_ext_ep_try_pivot_query_default(uct_ep_h ep)
+{
+    (void)ep;
+    return UCS_OK;
+}
+
+static uct_ib_mlx5_ext_ep_try_pivot_query_func_t
+        uct_ib_mlx5_ext_ep_try_pivot_query_func =
+                uct_ib_mlx5_ext_ep_try_pivot_query_default;
+
 static int uct_ib_mlx5_ext_is_unsupported_op(const void *op)
 {
     return (op == NULL) ||
@@ -293,6 +303,11 @@ ucs_status_t uct_ib_mlx5_ext_ep_outstanding_purge(
     return UCS_ERR_UNSUPPORTED;
 }
 
+ucs_status_t uct_ib_mlx5_ext_ep_try_pivot_query(uct_ep_h ep)
+{
+    return uct_ib_mlx5_ext_ep_try_pivot_query_func(ep);
+}
+
 void uct_ib_mlx5_ext_cleanup(void)
 {
     uct_ib_mlx5_ext_plugin_t *plugin, *tmp;
@@ -301,6 +316,9 @@ void uct_ib_mlx5_ext_cleanup(void)
         ucs_list_del(&plugin->list);
         ucs_free(plugin);
     }
+
+    uct_ib_mlx5_ext_ep_try_pivot_query_func =
+            uct_ib_mlx5_ext_ep_try_pivot_query_default;
 }
 
 void uct_ib_mlx5_ext_unregister(const char *name)
@@ -312,6 +330,12 @@ void uct_ib_mlx5_ext_unregister(const char *name)
     }
 
     ucs_list_for_each_safe(plugin, tmp, &uct_ib_mlx5_ext_plugins, list) {
+        if (uct_ib_mlx5_ext_ep_try_pivot_query_func ==
+            plugin->ops.ep_try_pivot_query) {
+            uct_ib_mlx5_ext_ep_try_pivot_query_func =
+                    uct_ib_mlx5_ext_ep_try_pivot_query_default;
+        }
+
         if (!strncmp(plugin->ops.name, name, UCT_COMPONENT_NAME_MAX)) {
             ucs_list_del(&plugin->list);
             ucs_free(plugin);
@@ -343,9 +367,14 @@ ucs_status_t uct_ib_mlx5_ext_register(const uct_ib_mlx5_ext_ops_t *ops)
     ucs_list_add_tail(&uct_ib_mlx5_ext_plugins, &plugin->list);
     num_plugins = ucs_list_length(&uct_ib_mlx5_ext_plugins);
 
-    ucs_debug("ib mlx5 ext: registered plugin name=%s iface_query=%s "
-              "ep_query=%s put_sgl_zcopy=%s outstanding_purge=%s "
-              "(total=%u)",
+    if (!uct_ib_mlx5_ext_is_unsupported_op(
+                (const void*)plugin->ops.ep_try_pivot_query)) {
+        uct_ib_mlx5_ext_ep_try_pivot_query_func = plugin->ops.ep_try_pivot_query;
+    }
+
+    ucs_debug("ib mlx5 ext: registered plugin name %s iface_query %s "
+              "ep_query %s put_sgl_zcopy %s outstanding_purge %s "
+              "try_pivot_query %s total %u",
               plugin->ops.name,
               uct_ib_mlx5_ext_is_unsupported_op(
                       (const void*)plugin->ops.iface_query) ?
@@ -361,6 +390,10 @@ ucs_status_t uct_ib_mlx5_ext_register(const uct_ib_mlx5_ext_ops_t *ops)
                       "supported",
               uct_ib_mlx5_ext_is_unsupported_op(
                       (const void*)plugin->ops.ep_outstanding_purge) ?
+                      "unsupported" :
+                      "supported",
+              uct_ib_mlx5_ext_is_unsupported_op(
+                      (const void*)plugin->ops.ep_try_pivot_query) ?
                       "unsupported" :
                       "supported",
               num_plugins);

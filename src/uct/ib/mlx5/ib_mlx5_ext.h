@@ -148,6 +148,14 @@ typedef ucs_status_t (*uct_ib_mlx5_ext_ep_query_func_t)(
 typedef size_t (*uct_ib_mlx5_ext_max_put_sgl_zcopy_count_func_t)(void);
 
 /**
+ * @brief External plugin callback invoked after posting an RC mlx5 WQE.
+ *
+ * The callback may refresh the CI/token pivot mapping. Errors are not
+ * propagated to the operation which has already been posted.
+ */
+typedef ucs_status_t (*uct_ib_mlx5_ext_ep_try_pivot_query_func_t)(uct_ep_h ep);
+
+/**
  * @brief External plugin operations.
  */
 typedef struct uct_ib_mlx5_ext_ops {
@@ -157,6 +165,8 @@ typedef struct uct_ib_mlx5_ext_ops {
     uct_ib_mlx5_ext_max_put_sgl_zcopy_count_func_t max_put_sgl_zcopy_count;      /**< Maximum PUT SGL zero-copy entry count callback */
     uct_ep_put_sgl_zcopy_func_t                    ep_put_sgl_zcopy;             /**< PUT SGL zero-copy callback */
     uct_ep_outstanding_purge_func_t                ep_outstanding_purge;         /**< Outstanding operation purge callback */
+    uct_ib_mlx5_ext_ep_try_pivot_query_func_t
+            ep_try_pivot_query; /**< Try pivot query callback */
 } uct_ib_mlx5_ext_ops_t;
 
 /**
@@ -202,6 +212,8 @@ ucs_status_t uct_ib_mlx5_ext_ep_put_sgl_zcopy(uct_ep_h ep,
 
 ucs_status_t uct_ib_mlx5_ext_ep_outstanding_purge(
         uct_ep_h ep, const uct_ep_outstanding_purge_params_t *params);
+
+ucs_status_t uct_ib_mlx5_ext_ep_try_pivot_query(uct_ep_h ep);
 
 END_C_DECLS
 

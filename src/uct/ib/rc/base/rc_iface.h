@@ -107,6 +107,7 @@ enum {
 
 /* flags for uct_rc_iface_send_op_t */
 enum {
+    UCT_RC_IFACE_SEND_OP_FLAG_PIVOT = UCS_BIT(10), /* pivot query */
     UCT_RC_IFACE_SEND_OP_STATUS     = UCS_BIT(11), /* status field is valid */
 #ifdef NVALGRIND
     UCT_RC_IFACE_SEND_OP_FLAG_IOV   = 0,

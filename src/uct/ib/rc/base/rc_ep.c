@@ -492,7 +492,8 @@ void uct_rc_txqp_purge_outstanding(uct_rc_iface_t *iface, uct_rc_txqp_t *txqp,
         }
 
         op->flags &= ~(UCT_RC_IFACE_SEND_OP_FLAG_INUSE |
-                       UCT_RC_IFACE_SEND_OP_FLAG_ZCOPY);
+                       UCT_RC_IFACE_SEND_OP_FLAG_ZCOPY |
+                       UCT_RC_IFACE_SEND_OP_FLAG_PIVOT);
 
         if ((op->handler == uct_rc_ep_send_op_completion_handler) ||
             (op->handler == uct_rc_ep_get_zcopy_completion_handler)) {

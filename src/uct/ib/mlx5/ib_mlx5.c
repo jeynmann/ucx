@@ -697,7 +697,8 @@ void uct_ib_mlx5_txwq_reset(uct_ib_mlx5_txwq_t *txwq)
     txwq->sw_pi      = 0;
     txwq->prev_sw_pi = UINT16_MAX;
     txwq->ft_ci      = UINT16_MAX;
-    txwq->next_token = 0;
+    txwq->pivot_token = 0;
+    txwq->pivot_ci    = 0;
     txwq->hw_ci      = 0xFFFF;
 #if UCS_ENABLE_ASSERT
     txwq->flags      = 0;
@@ -736,7 +737,10 @@ void uct_ib_mlx5_txwq_vfs_populate(uct_ib_mlx5_txwq_t *txwq, void *parent_obj)
     ucs_vfs_obj_add_ro_file(parent_obj, ucs_vfs_show_primitive, &txwq->hw_ci,
                             UCS_VFS_TYPE_U16, "hw_ci");
     ucs_vfs_obj_add_ro_file(parent_obj, ucs_vfs_show_primitive,
-                            &txwq->next_token, UCS_VFS_TYPE_U32, "next_token");
+                            &txwq->pivot_token, UCS_VFS_TYPE_U32,
+                            "pivot_token");
+    ucs_vfs_obj_add_ro_file(parent_obj, ucs_vfs_show_primitive, &txwq->pivot_ci,
+                            UCS_VFS_TYPE_U16, "pivot_ci");
 }
 
 ucs_status_t

@@ -300,13 +300,10 @@ uct_rc_mlx5_base_ep_put_sgl_zcopy(uct_ep_h tl_ep, void * const *buffers,
     uct_rc_txqp_posted(&ep->super.txqp, &iface->super, res_count, 1);
     uct_ib_mlx5_txwq_ring_doorbell(txwq, ctrl, txwq->sw_pi, 1);
 
-    for (i = 0; i < count; i++) {
-        uct_rc_mlx5_txwq_record_token(iface, txwq, lengths[i]);
-    }
-
     uct_rc_txqp_add_send_comp(&iface->super, &ep->super.txqp,
                               uct_rc_ep_send_op_completion_handler, comp, sn,
                               UCT_RC_IFACE_SEND_OP_FLAG_ZCOPY, NULL, 0, total);
+    uct_rc_mlx5_txqp_try_pivot_query(IBV_QPT_RC, &ep->super.txqp);
 
     UCT_TL_EP_STAT_OP(&ep->super.super, PUT, ZCOPY, total);
     uct_rc_ep_enable_flush_remote(&ep->super);
@@ -522,6 +519,7 @@ uct_rc_mlx5_base_ep_atomic_post(uct_ep_h tl_ep, unsigned opcode,
     uct_rc_ep_enable_flush_remote(&ep->super);
     UCT_TL_EP_STAT_ATOMIC(&ep->super.super);
     uct_rc_txqp_add_send_op(&ep->super.txqp, &desc->super);
+    uct_rc_mlx5_txqp_try_pivot_query(IBV_QPT_RC, &ep->super.txqp);
 }
 
 static UCS_F_ALWAYS_INLINE ucs_status_t uct_rc_mlx5_base_ep_atomic_fop(
@@ -803,8 +801,8 @@ uct_rc_mlx5_base_ep_invalidate(uct_ep_h tl_ep,
         ucs_assert(!(ep->super.flags & UCT_RC_MLX5_EP_FLAG_NO_COMPLETIONS));
         ep->super.flags |= UCT_RC_MLX5_EP_FLAG_NO_COMPLETIONS;
         txwq->ft_ci      = txwq->hw_ci;
-        ucs_debug("ep %p defer completions WQE range (%u, %u) next token %u",
-                  ep, txwq->ft_ci, txwq->sw_pi, txwq->next_token);
+        ucs_debug("ep %p defer completions WQE range (%u, %u) pivot token %u",
+                  ep, txwq->ft_ci, txwq->sw_pi, txwq->pivot_token);
     }
 
     return UCS_OK;

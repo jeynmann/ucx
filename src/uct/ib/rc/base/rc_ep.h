@@ -458,7 +458,8 @@ uct_rc_txqp_completion_op(uct_rc_iface_send_op_t *op, const void *resp)
                    ucs_debug_get_symbol_name((void*)op->handler));
     ucs_assert(op->flags & UCT_RC_IFACE_SEND_OP_FLAG_INUSE);
     op->flags &= ~(UCT_RC_IFACE_SEND_OP_FLAG_INUSE |
-                   UCT_RC_IFACE_SEND_OP_FLAG_ZCOPY);
+                   UCT_RC_IFACE_SEND_OP_FLAG_ZCOPY |
+                   UCT_RC_IFACE_SEND_OP_FLAG_PIVOT);
     op->handler(op, resp);
 }
 
@@ -471,6 +472,23 @@ uct_rc_txqp_completion_desc(uct_rc_txqp_t *txqp, uint16_t sn)
     ucs_queue_for_each_extract(op, &txqp->outstanding, queue,
                                UCS_CIRCULAR_COMPARE16(op->sn, <=, sn)) {
         uct_rc_txqp_completion_op(op, ucs_derived_of(op, uct_rc_iface_send_desc_t) + 1);
+    }
+}
+
+static UCS_F_ALWAYS_INLINE void
+uct_rc_txqp_completion_desc_gfa(uct_rc_txqp_t *txqp, uint16_t sn,
+                                const void *gfa_resp)
+{
+    uct_rc_iface_send_op_t *op;
+    const void *resp;
+
+    ucs_trace_poll("txqp %p complete ops up to sn %d", txqp, sn);
+    ucs_queue_for_each_extract(op, &txqp->outstanding, queue,
+                               UCS_CIRCULAR_COMPARE16(op->sn, <=, sn)) {
+        resp = (op->flags & UCT_RC_IFACE_SEND_OP_FLAG_PIVOT) ?
+                       gfa_resp :
+                       ucs_derived_of(op, uct_rc_iface_send_desc_t) + 1;
+        uct_rc_txqp_completion_op(op, resp);
     }
 }
 
