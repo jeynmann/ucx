@@ -456,12 +456,10 @@ static UCS_F_ALWAYS_INLINE void
 uct_rc_mlx5_txwq_record_token(uct_rc_mlx5_iface_common_t *iface,
                               uct_ib_mlx5_txwq_t *txwq, size_t message_length)
 {
-    size_t mtu;
+    size_t mtu = iface->super.super.config.path_mtu_bytes;
     uint32_t num_packets;
 
-    mtu         = uct_ib_mtu_value(iface->super.super.config.path_mtu);
     num_packets = ucs_max(1ul, ucs_div_round_up(message_length, mtu));
-
     txwq->next_token = (txwq->next_token + num_packets) & UCS_MASK(24);
 }
 
