@@ -49,6 +49,8 @@ static const char *uct_ib_mlx5_cqe_err_opcode(uct_ib_mlx5_err_cqe_t *ecqe)
             return "MASKED_CSWAP";
         case MLX5_OPCODE_ATOMIC_MASKED_FA:
             return "MASKED_FETCH_ADD";
+        case UCT_RC_MLX5_OPCODE_GFA:
+            return "GFA";
         default:
             return "";
         }
@@ -300,8 +302,9 @@ static void uct_ib_mlx5_wqe_dump(uct_ib_iface_t *iface, void *wqe, void *qstart,
                                            UCT_IB_OPCODE_FLAG_HAS_RADDR|UCT_IB_OPCODE_FLAG_HAS_EXT_ATOMIC },
 #if HAVE_MLX5_MMO
         [MLX5_OPCODE_MMO]              = { "MMO",
-                                           UCT_IB_OPCODE_FLAG_HAS_DMA }
+                                           UCT_IB_OPCODE_FLAG_HAS_DMA },
 #endif
+        [UCT_RC_MLX5_OPCODE_GFA]       = { "GFA", 0 },
     };
 
     struct mlx5_wqe_ctrl_seg *ctrl = wqe;
@@ -309,11 +312,10 @@ static void uct_ib_mlx5_wqe_dump(uct_ib_iface_t *iface, void *wqe, void *qstart,
     uint8_t opmod                  = ctrl->opmod_idx_opcode & 0xff;
     uint32_t qp_num                = ntohl(ctrl->qpn_ds) >> 8;
     int ds                         = ctrl->qpn_ds >> 24;
-    uct_ib_opcode_t *op            = &opcodes[opcode];
+    uct_ib_opcode_t *op;
     char *s                        = buffer;
     char *ends                     = buffer + max;
-    const char* sg_prefix_arr      = (op->flags & UCT_IB_OPCODE_FLAG_HAS_DMA) ?
-                                     "GS" : NULL;
+    const char *sg_prefix_arr;
     struct ibv_sge sg_list[16];
     uint64_t inline_bitmap;
     int i, is_inline, is_eth;
@@ -326,6 +328,15 @@ static void uct_ib_mlx5_wqe_dump(uct_ib_iface_t *iface, void *wqe, void *qstart,
                  UCS_PTR_BYTE_DIFF(qstart, wqe) / MLX5_SEND_WQE_BB);
         s += strlen(s);
     }
+
+    if ((opcode >= ucs_static_array_size(opcodes)) ||
+        (opcodes[opcode].name == NULL)) {
+        snprintf(s, ends - s, "UNKNOWN(0x%02x)", opcode);
+        return;
+    }
+
+    op            = &opcodes[opcode];
+    sg_prefix_arr = (op->flags & UCT_IB_OPCODE_FLAG_HAS_DMA) ? "GS" : NULL;
 
     /* Opcode and flags */
     uct_ib_log_dump_opcode(op,
@@ -340,6 +351,32 @@ static void uct_ib_mlx5_wqe_dump(uct_ib_iface_t *iface, void *wqe, void *qstart,
     seg = ctrl + 1;
     if (seg == qend) {
         seg = qstart;
+    }
+
+    /* GFA has three opcode-specific segments and no data segments. */
+    if (opcode == UCT_RC_MLX5_OPCODE_GFA) {
+        uint32_t *gfa_seg = seg;
+        uint32_t seg1[4], seg2[4], seg3[4];
+
+        memcpy(seg1, gfa_seg, sizeof(seg1));
+        gfa_seg += ucs_static_array_size(seg1);
+        if (gfa_seg == qend) {
+            gfa_seg = qstart;
+        }
+
+        memcpy(seg2, gfa_seg, sizeof(seg2));
+        gfa_seg += ucs_static_array_size(seg2);
+        if (gfa_seg == qend) {
+            gfa_seg = qstart;
+        }
+
+        memcpy(seg3, gfa_seg, sizeof(seg3));
+        snprintf(s, ends - s,
+                 " [seg1 %08x/%08x/%08x/%08x seg2 %08x/%08x/%08x/%08x seg3 %08x/%08x/%08x/%08x]",
+                 ntohl(seg1[0]), ntohl(seg1[1]), ntohl(seg1[2]), ntohl(seg1[3]),
+                 ntohl(seg2[0]), ntohl(seg2[1]), ntohl(seg2[2]), ntohl(seg2[3]),
+                 ntohl(seg3[0]), ntohl(seg3[1]), ntohl(seg3[2]), ntohl(seg3[3]));
+        return;
     }
 
     if (uct_ib_mlx5_is_qp_require_av_seg(iface->config.qp_type)) {
