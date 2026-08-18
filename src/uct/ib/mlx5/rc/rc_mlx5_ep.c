@@ -211,8 +211,6 @@ uct_rc_mlx5_base_ep_put_sgl_zcopy(uct_ep_h tl_ep, void * const *buffers,
     UCT_RC_MLX5_BASE_EP_DECL(tl_ep, iface, ep);
     uct_ib_mlx5_txwq_t *txwq       = &ep->tx.wq;
     size_t total                   = 0;
-    size_t mtu                     = iface->super.super.config.path_mtu_bytes;
-    uint32_t num_packets           = 0;
     struct mlx5_wqe_ctrl_seg *ctrl = NULL;
     struct mlx5_wqe_raddr_seg *raddr;
     struct mlx5_wqe_data_seg *dptr;
@@ -291,8 +289,6 @@ uct_rc_mlx5_base_ep_put_sgl_zcopy(uct_ep_h tl_ep, void * const *buffers,
         curr = uct_ib_mlx5_txwq_wrap_exact(txwq, curr);
         pi++;
         total += lengths[i];
-        /* Each SGL WQE consumes its own PSN range; do not use total length. */
-        num_packets += ucs_max(1ul, ucs_div_round_up(lengths[i], mtu));
     }
 
     res_count         = pi - 1 - txwq->prev_sw_pi;
@@ -300,7 +296,11 @@ uct_rc_mlx5_base_ep_put_sgl_zcopy(uct_ep_h tl_ep, void * const *buffers,
     txwq->sw_pi       = pi;
     txwq->curr        = curr;
     txwq->sig_pi      = txwq->prev_sw_pi;
-    txwq->next_token  = (txwq->next_token + num_packets) & UCS_MASK(24);
+
+    for (i = 0; i < count; i++) {
+        uct_ib_mlx5_ext_ep_priv_update_tx(tl_ep, uct_rc_mlx5_ep_ext_priv(ep),
+                                          lengths[i]);
+    }
 
     uct_rc_txqp_posted(&ep->super.txqp, &iface->super, res_count, 1);
     uct_ib_mlx5_txwq_ring_doorbell(txwq, ctrl, txwq->sw_pi, 1);
@@ -791,6 +791,8 @@ uct_rc_mlx5_base_ep_invalidate(uct_ep_h tl_ep,
 {
     UCT_RC_MLX5_EP_DECL(tl_ep, iface, ep);
     uct_ib_mlx5_txwq_t *txwq = &ep->super.tx.wq;
+    uct_ib_mlx5_ext_ep_priv_params_t ext_params;
+    uint16_t sw_ci;
     ucs_status_t status;
 
     status = uct_ib_mlx5_modify_qp_state(&iface->super.super, &txwq->super,
@@ -802,10 +804,20 @@ uct_rc_mlx5_base_ep_invalidate(uct_ep_h tl_ep,
     if ((params->field_mask & UCT_EP_INVALIDATE_PARAM_FIELD_FLAGS) &&
         (params->flags & UCT_EP_INVALIDATE_FLAG_NO_COMPLETIONS)) {
         ucs_assert(!(ep->super.flags & UCT_RC_MLX5_EP_FLAG_NO_COMPLETIONS));
+        sw_ci = txwq->prev_sw_pi -
+                (txwq->bb_max - uct_rc_txqp_available(&ep->super.super.txqp));
+        if (uct_ib_mlx5_ext_ep_priv_size(tl_ep->iface) > 0) {
+            ext_params.field_mask = UCT_IB_MLX5_EXT_EP_PARAM_FIELD_SW_CI;
+            ext_params.sw_ci      = sw_ci;
+            status                = uct_ib_mlx5_ext_ep_priv_update(
+                    tl_ep, uct_rc_mlx5_ep_ext_priv(&ep->super), &ext_params);
+            if (status != UCS_OK) {
+                return status;
+            }
+        }
         ep->super.flags |= UCT_RC_MLX5_EP_FLAG_NO_COMPLETIONS;
-        txwq->ft_ci      = txwq->hw_ci;
-        ucs_debug("ep %p defer completions WQE range (%u, %u) next token %u",
-                  ep, txwq->ft_ci, txwq->sw_pi, txwq->next_token);
+        ucs_debug("ep %p yield completions sw_ci %u, sw_pi %u", ep, sw_ci,
+                  txwq->sw_pi);
     }
 
     return UCS_OK;
@@ -815,14 +827,26 @@ ucs_status_t uct_rc_mlx5_ep_outstanding_purge(
         uct_ep_h tl_ep, const uct_ep_outstanding_purge_params_t *params)
 {
     uct_rc_mlx5_base_ep_t *ep = ucs_derived_of(tl_ep, uct_rc_mlx5_base_ep_t);
+    uct_ep_outstanding_purge_params_t local_params;
+    uint16_t hw_ci;
     ucs_status_t status;
 
-    status = uct_ib_mlx5_ext_ep_outstanding_purge(tl_ep, params);
+    ucs_assert(params != NULL);
+
+    local_params = *params;
+    if (uct_ib_mlx5_ext_ep_priv_size(tl_ep->iface) > 0) {
+        local_params.field_mask |= UCT_EP_OUTSTANDING_FIELD_PRIV;
+        local_params.priv        = uct_rc_mlx5_ep_ext_priv(ep);
+    }
+
+    status = uct_ib_mlx5_ext_ep_outstanding_purge(tl_ep, &local_params);
     if (status != UCS_OK) {
         return status;
     }
 
-    uct_rc_mlx5_ep_update_tx_res(ep, ep->tx.wq.hw_ci, ep->tx.wq.ft_ci);
+    /* Recover all posted WQEs after the plugin has handled outstanding ops. */
+    hw_ci = ep->tx.wq.prev_sw_pi;
+    uct_rc_mlx5_ep_update_tx_res(ep, hw_ci, hw_ci);
     ep->flags &= ~UCT_RC_MLX5_EP_FLAG_NO_COMPLETIONS;
     return UCS_OK;
 }
@@ -1326,10 +1350,16 @@ err:
 
 UCS_CLASS_CLEANUP_FUNC(uct_rc_mlx5_ep_t)
 {
-    uct_rc_mlx5_iface_common_t *iface = ucs_derived_of(
-            self->super.super.super.super.iface, uct_rc_mlx5_iface_common_t);
+    uct_iface_h tl_iface = self->super.super.super.super.iface;
+    uct_rc_mlx5_iface_common_t *iface =
+            ucs_derived_of(tl_iface, uct_rc_mlx5_iface_common_t);
     uct_rc_mlx5_iface_qp_cleanup_ctx_t *cleanup_ctx;
     uint16_t outstanding, wqe_count;
+
+    if (uct_ib_mlx5_ext_ep_priv_size(tl_iface) > 0) {
+        uct_ib_mlx5_ext_ep_priv_cleanup((uct_ep_h)self,
+                                        uct_rc_mlx5_ep_ext_priv(&self->super));
+    }
 
     cleanup_ctx = ucs_malloc(sizeof(*cleanup_ctx), "mlx5_qp_cleanup_ctx");
     ucs_assert_always(cleanup_ctx != NULL);
@@ -1361,5 +1391,45 @@ UCS_CLASS_CLEANUP_FUNC(uct_rc_mlx5_ep_t)
 }
 
 UCS_CLASS_DEFINE(uct_rc_mlx5_ep_t, uct_rc_mlx5_base_ep_t);
-UCS_CLASS_DEFINE_NEW_FUNC(uct_rc_mlx5_ep_t, uct_ep_t, const uct_ep_params_t *);
+
+ucs_status_t
+uct_rc_mlx5_ep_t_new(const uct_ep_params_t *params, uct_ep_t **obj_p)
+{
+    size_t ext_size = uct_ib_mlx5_ext_ep_priv_size(params->iface);
+    uct_ib_mlx5_ext_ep_priv_params_t init_params = {};
+    uct_rc_mlx5_ep_t *ep;
+    ucs_status_t status;
+
+    *obj_p = NULL;
+    ep     = ucs_calloc(1, sizeof(*ep) + ext_size, "uct_rc_mlx5_ep_t");
+    if (ep == NULL) {
+        return UCS_ERR_NO_MEMORY;
+    }
+
+    status = UCS_CLASS_INIT(uct_rc_mlx5_ep_t, ep, params);
+    if (status != UCS_OK) {
+        goto err_free;
+    }
+
+    if (ext_size > 0) {
+        status = uct_ib_mlx5_ext_ep_priv_init((uct_ep_h)ep,
+                                              uct_rc_mlx5_ep_ext_priv(
+                                                      &ep->super),
+                                              &init_params);
+        if (status != UCS_OK) {
+            goto err_init_priv;
+        }
+    }
+
+    *obj_p = (uct_ep_t*)ep;
+    ucs_class_check_new_func_result(UCS_OK, ep);
+    return UCS_OK;
+
+err_init_priv:
+    UCS_CLASS_CLEANUP(uct_rc_mlx5_ep_t, ep);
+err_free:
+    ucs_class_free(ep);
+    return status;
+}
+
 UCS_CLASS_DEFINE_DELETE_FUNC(uct_rc_mlx5_ep_t, uct_ep_t);

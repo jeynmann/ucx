@@ -10,6 +10,7 @@
 
 #include <uct/base/uct_iov.inl>
 #include <uct/ib/mlx5/ib_mlx5.inl>
+#include <uct/ib/mlx5/ib_mlx5_ext.h>
 #include <uct/ib/mlx5/ib_mlx5_log.h>
 
 #define UCT_RC_MLX5_EP_DECL(_tl_ep, _iface, _ep) \
@@ -453,17 +454,6 @@ uct_rc_mlx5_ep_fm_cq_update(uct_rc_mlx5_iface_common_t *iface,
 }
 
 static UCS_F_ALWAYS_INLINE void
-uct_rc_mlx5_txwq_record_token(uct_rc_mlx5_iface_common_t *iface,
-                              uct_ib_mlx5_txwq_t *txwq, size_t message_length)
-{
-    size_t mtu = iface->super.super.config.path_mtu_bytes;
-    uint32_t num_packets;
-
-    num_packets = ucs_max(1ul, ucs_div_round_up(message_length, mtu));
-    txwq->next_token = (txwq->next_token + num_packets) & UCS_MASK(24);
-}
-
-static UCS_F_ALWAYS_INLINE void
 uct_rc_mlx5_common_post_send(uct_rc_mlx5_iface_common_t *iface, int qp_type,
                              uct_rc_txqp_t *txqp, uct_ib_mlx5_txwq_t *txwq,
                              uint8_t opcode, uint8_t opmod, uint8_t fm_ce_se,
@@ -507,7 +497,11 @@ uct_rc_mlx5_common_post_send(uct_rc_mlx5_iface_common_t *iface, int qp_type,
     res_count = uct_ib_mlx5_post_send(txwq, ctrl, wqe_size, 1);
 
     if ((qp_type == IBV_QPT_RC) && (opcode != MLX5_OPCODE_NOP)) {
-        uct_rc_mlx5_txwq_record_token(iface, txwq, message_length);
+        uct_rc_mlx5_base_ep_t *ep =
+                ucs_container_of(txwq, uct_rc_mlx5_base_ep_t, tx.wq);
+
+        uct_ib_mlx5_ext_ep_priv_update_tx(
+                (uct_ep_h)ep, uct_rc_mlx5_ep_ext_priv(ep), message_length);
     }
 
     if (fm_ce_se & MLX5_WQE_CTRL_CQ_UPDATE) {
@@ -1911,13 +1905,16 @@ uct_rc_mlx5_ep_update_tx_res(uct_rc_mlx5_base_ep_t *ep, uint16_t hw_ci,
 {
     uct_ib_mlx5_txwq_t *txwq = &ep->tx.wq;
     uct_rc_txqp_t *txqp      = &ep->super.txqp;
-    uint16_t hw_bb_num       = hw_ci - txwq->hw_ci;
+    int16_t prev_available  = uct_rc_txqp_available(txqp);
+    uint16_t prev_sw_ci      = txwq->prev_sw_pi -
+                               (txwq->bb_max - prev_available);
+    uint16_t hw_bb_num       = hw_ci - prev_sw_ci;
     uint16_t available;
     uint16_t bb_num;
 
     available = uct_ib_mlx5_txwq_update_bb(txwq, hw_ci, sw_ci);
-    if (available > uct_rc_txqp_available(txqp)) {
-        bb_num = available - uct_rc_txqp_available(txqp);
+    if (available > prev_available) {
+        bb_num = available - prev_available;
         uct_rc_txqp_available_add(txqp, bb_num);
     }
     ucs_assert(uct_rc_txqp_available(txqp) <= txwq->bb_max);

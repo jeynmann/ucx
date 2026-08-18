@@ -1893,7 +1893,8 @@ typedef void (*uct_ep_outstanding_purge_callback_t)(
 typedef enum {
     UCT_EP_OUTSTANDING_FIELD_RX_TOKEN = UCS_BIT(0),
     UCT_EP_OUTSTANDING_FIELD_CB       = UCS_BIT(1),
-    UCT_EP_OUTSTANDING_FIELD_ARG      = UCS_BIT(2)
+    UCT_EP_OUTSTANDING_FIELD_ARG      = UCS_BIT(2),
+    UCT_EP_OUTSTANDING_FIELD_PRIV     = UCS_BIT(3)
 } uct_ep_outstanding_purge_field_t;
 
 
@@ -1919,6 +1920,12 @@ typedef struct {
      * Valid when @ref UCT_EP_OUTSTANDING_FIELD_ARG is set.
      */
     void                                *arg;
+
+    /**
+     * Opaque private data.
+     * Valid when @ref UCT_EP_OUTSTANDING_FIELD_PRIV is set.
+     */
+    void                                *priv;
 } uct_ep_outstanding_purge_params_t;
 
 

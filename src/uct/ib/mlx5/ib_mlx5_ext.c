@@ -23,6 +23,19 @@ typedef struct uct_ib_mlx5_ext_plugin {
 
 UCS_LIST_HEAD(uct_ib_mlx5_ext_plugins);
 
+static void
+uct_ib_mlx5_ext_ep_priv_update_tx_func_default(uct_ep_h ep, void *priv,
+                                               size_t message_length)
+{
+    (void)ep;
+    (void)priv;
+    (void)message_length;
+}
+
+static uct_ib_mlx5_ext_ep_priv_update_tx_func_t
+        uct_ib_mlx5_ext_ep_priv_update_tx_cached =
+                uct_ib_mlx5_ext_ep_priv_update_tx_func_default;
+
 static int uct_ib_mlx5_ext_is_unsupported_op(const void *op)
 {
     return (op == NULL) ||
@@ -128,8 +141,6 @@ uct_ib_mlx5_ext_find_plugin(uct_iface_h iface, uint64_t cap_flags)
         return plugin;
     }
 
-    ucs_error("ib mlx5 ext: no plugin found for cap flags: %" PRIu64,
-              cap_flags);
     return NULL;
 }
 
@@ -154,6 +165,7 @@ uct_ib_mlx5_ext_iface_query(uct_iface_h iface,
         plugin = uct_ib_mlx5_ext_find_plugin(iface,
                                              UCT_IFACE_FLAG_V2_QUERY_TOKEN);
         if (plugin == NULL) {
+            ucs_error("ib mlx5 ext: no plugin found for token query");
             return UCS_ERR_UNSUPPORTED;
         }
 
@@ -187,6 +199,7 @@ uct_ib_mlx5_ext_ep_query(uct_ep_h ep, uct_ib_mlx5_ext_ep_query_attr_t *attr)
         plugin = uct_ib_mlx5_ext_find_plugin(ep->iface,
                                              UCT_IFACE_FLAG_V2_QUERY_TOKEN);
         if (plugin == NULL) {
+            ucs_error("ib mlx5 ext: no plugin found for token query");
             return UCS_ERR_UNSUPPORTED;
         }
 
@@ -293,6 +306,113 @@ ucs_status_t uct_ib_mlx5_ext_ep_outstanding_purge(
     return UCS_ERR_UNSUPPORTED;
 }
 
+void uct_ib_mlx5_ext_ep_priv_update_tx(uct_ep_h ep, void *priv,
+                                       size_t message_length)
+{
+    uct_ib_mlx5_ext_ep_priv_update_tx_cached(ep, priv, message_length);
+}
+
+size_t uct_ib_mlx5_ext_ep_priv_size(uct_iface_h iface)
+{
+    uct_ib_mlx5_ext_iface_query_attr_t attr = {};
+    uct_ib_mlx5_ext_plugin_t *plugin;
+    ucs_status_t status;
+
+    plugin = uct_ib_mlx5_ext_find_plugin(iface, UCT_IFACE_FLAG_V2_QUERY_TOKEN);
+    if (plugin == NULL) {
+        ucs_debug("ib mlx5 ext size is 0, no plugin found for token query");
+        return 0;
+    }
+
+    attr.field_mask = UCT_IB_MLX5_EXT_IFACE_QUERY_ATTR_FIELD_EP_PRIV_LEN;
+    status          = plugin->ops.iface_query(iface, &attr);
+    if (status != UCS_OK) {
+        ucs_error("ib mlx5 ext: failed to query private data size: %s",
+                  ucs_status_string(status));
+        return 0;
+    }
+
+    ucs_assert(attr.ep_priv_len > 0);
+    ucs_debug("ib mlx5 ext: ep private data size: %zu", attr.ep_priv_len);
+
+    return attr.ep_priv_len;
+}
+
+static ucs_status_t
+uct_ib_mlx5_ext_ep_priv_params_check(uct_ib_mlx5_ext_ep_priv_params_t *params,
+                                     uint64_t acquired_mask)
+{
+    if (params == NULL) {
+        ucs_error("ib mlx5 ext: private data parameters are NULL");
+        return UCS_ERR_INVALID_PARAM;
+    }
+
+    if (!ucs_test_all_flags(params->field_mask, acquired_mask)) {
+        ucs_error("ib mlx5 ext: acquired mask 0x%" PRIx64
+                  " is not all set in 0x%" PRIx64,
+                  acquired_mask, params->field_mask);
+        return UCS_ERR_INVALID_PARAM;
+    }
+
+    return UCS_OK;
+}
+
+ucs_status_t
+uct_ib_mlx5_ext_ep_priv_update(uct_ep_h ep, void *priv,
+                               uct_ib_mlx5_ext_ep_priv_params_t *params)
+{
+    uct_ib_mlx5_ext_plugin_t *plugin;
+    ucs_status_t status;
+
+    status = uct_ib_mlx5_ext_ep_priv_params_check(
+            params, UCT_IB_MLX5_EXT_EP_PARAM_FIELD_SW_CI);
+    if (status != UCS_OK) {
+        return status;
+    }
+
+    plugin = uct_ib_mlx5_ext_find_plugin(ep->iface,
+                                         UCT_IFACE_FLAG_V2_QUERY_TOKEN);
+    ucs_assert((plugin != NULL) &&
+               !(uct_ib_mlx5_ext_is_unsupported_op(
+                       (const void*)plugin->ops.ep_priv_update)));
+
+    return plugin->ops.ep_priv_update(ep, priv, params);
+}
+
+ucs_status_t
+uct_ib_mlx5_ext_ep_priv_init(uct_ep_h ep, void *priv,
+                             uct_ib_mlx5_ext_ep_priv_params_t *params)
+{
+    uct_ib_mlx5_ext_plugin_t *plugin;
+    ucs_status_t status;
+
+    status = uct_ib_mlx5_ext_ep_priv_params_check(params, 0);
+    if (status != UCS_OK) {
+        return status;
+    }
+
+    plugin = uct_ib_mlx5_ext_find_plugin(ep->iface,
+                                         UCT_IFACE_FLAG_V2_QUERY_TOKEN);
+    ucs_assert((plugin != NULL) &&
+               !(uct_ib_mlx5_ext_is_unsupported_op(
+                       (const void*)plugin->ops.ep_priv_init)));
+
+    return plugin->ops.ep_priv_init(ep, priv, params);
+}
+
+void uct_ib_mlx5_ext_ep_priv_cleanup(uct_ep_h ep, void *priv)
+{
+    uct_ib_mlx5_ext_plugin_t *plugin;
+
+    plugin = uct_ib_mlx5_ext_find_plugin(ep->iface,
+                                         UCT_IFACE_FLAG_V2_QUERY_TOKEN);
+    ucs_assert((plugin != NULL) &&
+               !(uct_ib_mlx5_ext_is_unsupported_op(
+                       (const void*)plugin->ops.ep_priv_cleanup)));
+
+    plugin->ops.ep_priv_cleanup(ep, priv);
+}
+
 void uct_ib_mlx5_ext_cleanup(void)
 {
     uct_ib_mlx5_ext_plugin_t *plugin, *tmp;
@@ -301,6 +421,9 @@ void uct_ib_mlx5_ext_cleanup(void)
         ucs_list_del(&plugin->list);
         ucs_free(plugin);
     }
+
+    uct_ib_mlx5_ext_ep_priv_update_tx_cached =
+            uct_ib_mlx5_ext_ep_priv_update_tx_func_default;
 }
 
 void uct_ib_mlx5_ext_unregister(const char *name)
@@ -313,6 +436,11 @@ void uct_ib_mlx5_ext_unregister(const char *name)
 
     ucs_list_for_each_safe(plugin, tmp, &uct_ib_mlx5_ext_plugins, list) {
         if (!strncmp(plugin->ops.name, name, UCT_COMPONENT_NAME_MAX)) {
+            if (uct_ib_mlx5_ext_ep_priv_update_tx_cached ==
+                plugin->ops.ep_priv_update_tx) {
+                uct_ib_mlx5_ext_ep_priv_update_tx_cached =
+                        uct_ib_mlx5_ext_ep_priv_update_tx_func_default;
+            }
             ucs_list_del(&plugin->list);
             ucs_free(plugin);
             return;
@@ -340,13 +468,29 @@ ucs_status_t uct_ib_mlx5_ext_register(const uct_ib_mlx5_ext_ops_t *ops)
     plugin->ops                                  = *ops;
     plugin->ops.name[UCT_COMPONENT_NAME_MAX - 1] = '\0';
 
+    if (ops->cap_flags & UCT_IB_MLX5_EXT_OPS_CAP_EP_PRIV) {
+        ucs_assert(!uct_ib_mlx5_ext_is_unsupported_op(
+                (const void*)ops->ep_priv_update_tx));
+        ucs_assert(!uct_ib_mlx5_ext_is_unsupported_op(
+                (const void*)ops->ep_priv_init));
+        ucs_assert(!uct_ib_mlx5_ext_is_unsupported_op(
+                (const void*)ops->ep_priv_cleanup));
+        ucs_assert(!uct_ib_mlx5_ext_is_unsupported_op(
+                (const void*)ops->ep_priv_update));
+        if (uct_ib_mlx5_ext_ep_priv_update_tx_cached ==
+            uct_ib_mlx5_ext_ep_priv_update_tx_func_default) {
+            uct_ib_mlx5_ext_ep_priv_update_tx_cached = ops->ep_priv_update_tx;
+        }
+    }
+
     ucs_list_add_tail(&uct_ib_mlx5_ext_plugins, &plugin->list);
     num_plugins = ucs_list_length(&uct_ib_mlx5_ext_plugins);
 
-    ucs_debug("ib mlx5 ext: registered plugin name=%s iface_query=%s "
-              "ep_query=%s put_sgl_zcopy=%s outstanding_purge=%s "
-              "(total=%u)",
-              plugin->ops.name,
+    ucs_debug("ib mlx5 ext: registered plugin name=%s cap_flags=0x%" PRIx64
+              " iface_query=%s ep_query=%s put_sgl_zcopy=%s "
+              "outstanding_purge=%s ep_priv_update_tx=%s ep_priv_update=%s "
+              "ep_priv_init=%s ep_priv_cleanup=%s (total=%u)",
+              plugin->ops.name, plugin->ops.cap_flags,
               uct_ib_mlx5_ext_is_unsupported_op(
                       (const void*)plugin->ops.iface_query) ?
                       "unsupported" :
@@ -361,6 +505,22 @@ ucs_status_t uct_ib_mlx5_ext_register(const uct_ib_mlx5_ext_ops_t *ops)
                       "supported",
               uct_ib_mlx5_ext_is_unsupported_op(
                       (const void*)plugin->ops.ep_outstanding_purge) ?
+                      "unsupported" :
+                      "supported",
+              uct_ib_mlx5_ext_is_unsupported_op(
+                      (const void*)plugin->ops.ep_priv_update_tx) ?
+                      "unsupported" :
+                      "supported",
+              uct_ib_mlx5_ext_is_unsupported_op(
+                      (const void*)plugin->ops.ep_priv_update) ?
+                      "unsupported" :
+                      "supported",
+              uct_ib_mlx5_ext_is_unsupported_op(
+                      (const void*)plugin->ops.ep_priv_init) ?
+                      "unsupported" :
+                      "supported",
+              uct_ib_mlx5_ext_is_unsupported_op(
+                      (const void*)plugin->ops.ep_priv_cleanup) ?
                       "unsupported" :
                       "supported",
               num_plugins);

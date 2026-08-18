@@ -95,6 +95,11 @@ protected:
                     *static_cast<const uint64_t*>(attr->tx_token) + 1;
         }
 
+        if (attr->field_mask &
+            UCT_IB_MLX5_EXT_IFACE_QUERY_ATTR_FIELD_EP_PRIV_LEN) {
+            attr->ep_priv_len = sizeof(uint64_t);
+        }
+
         return UCS_OK;
     }
 
@@ -114,16 +119,35 @@ protected:
     static ucs_status_t
     purge(uct_ep_h tl_ep, const uct_ep_outstanding_purge_params_t *params)
     {
-        uct_ep_op_info_t op_info = {};
         uct_rc_mlx5_base_ep_t *ep = ucs_derived_of(tl_ep,
                                                    uct_rc_mlx5_base_ep_t);
+        uct_ep_op_info_t op_info  = {};
 
         EXPECT_EQ(rx_token(), *static_cast<const uint64_t*>(params->rx_token));
-        if (ep->flags & UCT_RC_MLX5_EP_FLAG_NO_COMPLETIONS) {
-            ep->tx.wq.ft_ci = ep->tx.wq.prev_sw_pi;
-        }
+        EXPECT_TRUE(params->field_mask & UCT_EP_OUTSTANDING_FIELD_PRIV);
+        EXPECT_EQ(uct_rc_mlx5_ep_ext_priv(ep), params->priv);
         params->cb(&op_info, params->arg);
         return UCS_OK;
+    }
+
+    static ucs_status_t
+    ep_priv_init(uct_ep_h, void*, uct_ib_mlx5_ext_ep_priv_params_t*)
+    {
+        return UCS_OK;
+    }
+
+    static void ep_priv_cleanup(uct_ep_h, void*)
+    {
+    }
+
+    static ucs_status_t
+    ep_priv_update(uct_ep_h, void*, uct_ib_mlx5_ext_ep_priv_params_t*)
+    {
+        return UCS_OK;
+    }
+
+    static void ep_priv_update_tx(uct_ep_h, void*, size_t)
+    {
     }
 
     static void purge_cb(const uct_ep_op_info_t*, void *arg)
@@ -166,7 +190,7 @@ protected:
     register_plugin(const char *name,
                     uct_ib_mlx5_ext_iface_query_func_t iface_query_cb = NULL,
                     uct_ib_mlx5_ext_ep_query_func_t ep_query_cb = NULL,
-                    uct_ep_outstanding_purge_func_t purge_cb = NULL)
+                    uct_ib_mlx5_ext_ep_outstanding_purge_func_t purge_cb = NULL)
     {
         uct_ib_mlx5_ext_ops_t ops = {};
 
@@ -174,6 +198,11 @@ protected:
         ops.iface_query          = iface_query_cb;
         ops.ep_query             = ep_query_cb;
         ops.ep_outstanding_purge = purge_cb;
+        ops.cap_flags            = UCT_IB_MLX5_EXT_OPS_CAP_EP_PRIV;
+        ops.ep_priv_init         = ep_priv_init;
+        ops.ep_priv_cleanup      = ep_priv_cleanup;
+        ops.ep_priv_update       = ep_priv_update;
+        ops.ep_priv_update_tx    = ep_priv_update_tx;
         ASSERT_UCS_OK(uct_ib_mlx5_ext_register(&ops));
     }
 

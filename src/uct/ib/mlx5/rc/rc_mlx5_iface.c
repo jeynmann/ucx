@@ -226,8 +226,6 @@ purge:
     if (!(ep->flags & UCT_RC_MLX5_EP_FLAG_NO_COMPLETIONS)) {
         uct_rc_mlx5_iface_update_tx_res(iface, ep, pi, pi);
         uct_rc_txqp_purge_outstanding(iface, &ep->super.txqp, ep_status, pi, 0);
-    } else {
-        uct_rc_mlx5_iface_update_tx_res(iface, ep, pi, ep->tx.wq.ft_ci);
     }
 
 out:

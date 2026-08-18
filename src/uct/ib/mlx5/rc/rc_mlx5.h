@@ -71,6 +71,12 @@ typedef struct uct_rc_mlx5_ep {
     uct_rc_mlx5_mp_context_t mp;
 } uct_rc_mlx5_ep_t;
 
+static UCS_F_ALWAYS_INLINE void *
+uct_rc_mlx5_ep_ext_priv(uct_rc_mlx5_base_ep_t *ep)
+{
+    return UCS_PTR_BYTE_OFFSET(ep, sizeof(uct_rc_mlx5_ep_t));
+}
+
 
 /**
  * RC MLX5 EP cleanup context

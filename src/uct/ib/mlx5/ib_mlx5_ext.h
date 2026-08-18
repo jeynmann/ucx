@@ -21,6 +21,17 @@
 BEGIN_C_DECLS
 
 /**
+ * @brief Capability flags for @ref uct_ib_mlx5_ext_ops_t.
+ *
+ * The enumeration allows specifying which capabilities are supported by the
+ * extension.
+ */
+enum uct_ib_mlx5_ext_ops_cap_flags {
+    /** Enables EP private-data callbacks. */
+    UCT_IB_MLX5_EXT_OPS_CAP_EP_PRIV = UCS_BIT(0)
+};
+
+/**
  * @brief Iface query attributes field mask.
  *
  * The enumeration allows specifying which fields in
@@ -40,7 +51,10 @@ enum uct_ib_mlx5_ext_iface_query_attr_field {
     UCT_IB_MLX5_EXT_IFACE_QUERY_ATTR_FIELD_TX_TOKEN     = UCS_BIT(3),
 
     /** Enables @ref uct_ib_mlx5_ext_iface_query_attr_t::rx_token */
-    UCT_IB_MLX5_EXT_IFACE_QUERY_ATTR_FIELD_RX_TOKEN     = UCS_BIT(4)
+    UCT_IB_MLX5_EXT_IFACE_QUERY_ATTR_FIELD_RX_TOKEN     = UCS_BIT(4),
+
+    /** Enables @ref uct_ib_mlx5_ext_iface_query_attr_t::ep_priv_len */
+    UCT_IB_MLX5_EXT_IFACE_QUERY_ATTR_FIELD_EP_PRIV_LEN  = UCS_BIT(5)
 };
 
 /**
@@ -82,6 +96,9 @@ typedef struct uct_ib_mlx5_ext_iface_query_attr {
      * @ref UCT_IB_MLX5_EXT_IFACE_QUERY_ATTR_FIELD_TX_TOKEN must be set together.
      */
     void       *rx_token;
+
+    /** Per-endpoint private storage required by the extension. */
+    size_t     ep_priv_len;
 } uct_ib_mlx5_ext_iface_query_attr_t;
 
 /**
@@ -115,6 +132,32 @@ typedef struct uct_ib_mlx5_ext_ep_query_attr {
 } uct_ib_mlx5_ext_ep_query_attr_t;
 
 /**
+ * @brief EP private-data parameters field mask.
+ *
+ * The enumeration allows specifying which fields in
+ * @ref uct_ib_mlx5_ext_ep_priv_params are present.
+ */
+enum uct_ib_mlx5_ext_ep_priv_param_field {
+    /** Enables @ref uct_ib_mlx5_ext_ep_priv_params_t::sw_ci. */
+    UCT_IB_MLX5_EXT_EP_PARAM_FIELD_SW_CI = UCS_BIT(0)
+};
+
+/**
+ * @brief EP private-data operation parameters.
+ */
+typedef struct uct_ib_mlx5_ext_ep_priv_params {
+    /**
+     * Mask of valid fields in this structure, using bits from
+     * @ref uct_ib_mlx5_ext_ep_priv_param_field. Fields not specified in
+     * this mask will be ignored.
+     */
+    uint64_t field_mask;
+
+    /** Hardware consumed index. */
+    uint16_t sw_ci;
+} uct_ib_mlx5_ext_ep_priv_params_t;
+
+/**
  * @brief External plugin iface query callback.
  *
  * @param [in]     iface Interface to query.
@@ -139,6 +182,17 @@ typedef ucs_status_t (*uct_ib_mlx5_ext_ep_query_func_t)(
         uct_ep_h ep, uct_ib_mlx5_ext_ep_query_attr_t *attr);
 
 /**
+ * @brief External plugin EP outstanding purge callback.
+ *
+ * @param [in]     ep     UCT endpoint.
+ * @param [in]     params Outstanding purge parameters.
+ *
+ * @return UCS_OK on success, or an error if the operation failed.
+ */
+typedef ucs_status_t (*uct_ib_mlx5_ext_ep_outstanding_purge_func_t)(
+        uct_ep_h ep, const uct_ep_outstanding_purge_params_t *params);
+
+/**
  * @brief External plugin maximum PUT SGL zero-copy entry count callback.
  *
  * @return Maximum number of SGL entries supported by the plugin's
@@ -148,15 +202,63 @@ typedef ucs_status_t (*uct_ib_mlx5_ext_ep_query_func_t)(
 typedef size_t (*uct_ib_mlx5_ext_max_put_sgl_zcopy_count_func_t)(void);
 
 /**
+ * @brief External plugin EP update TX private data callback.
+ *
+ * @param [in] ep          Endpoint.
+ * @param [in] priv        Endpoint private data.
+ * @param [in] message_length Network message length.
+ */
+typedef void (*uct_ib_mlx5_ext_ep_priv_update_tx_func_t)(uct_ep_h ep,
+                                                         void *priv,
+                                                         size_t message_length);
+
+/**
+ * @brief Update EP private data.
+ *
+ * @param [in]     ep     UCT endpoint.
+ * @param [in]     priv   Extension EP private data.
+ * @param [in,out] params Update parameters.
+ *
+ * @return UCS_OK on success, or an error if the update failed.
+ */
+typedef ucs_status_t (*uct_ib_mlx5_ext_ep_priv_update_func_t)(
+        uct_ep_h ep, void *priv, uct_ib_mlx5_ext_ep_priv_params_t *params);
+
+/**
+ * @brief Initialize EP private data.
+ *
+ * @param [in]     ep    UCT endpoint.
+ * @param [in]     priv  Extension EP private data.
+ * @param [in,out] params Initialization parameters.
+ *
+ * @return UCS_OK on success, or an error if initialization failed.
+ */
+typedef ucs_status_t (*uct_ib_mlx5_ext_ep_priv_init_func_t)(
+        uct_ep_h ep, void *priv, uct_ib_mlx5_ext_ep_priv_params_t *params);
+
+/**
+ * @brief Cleanup EP private data.
+ *
+ * @param [in]     ep     UCT endpoint.
+ * @param [in]     priv   Extension EP private data.
+ */
+typedef void (*uct_ib_mlx5_ext_ep_priv_cleanup_func_t)(uct_ep_h ep, void *priv);
+
+/**
  * @brief External plugin operations.
  */
 typedef struct uct_ib_mlx5_ext_ops {
     char                                           name[UCT_COMPONENT_NAME_MAX]; /**< Plugin name */
+    uint64_t                                       cap_flags;                    /**< Extension operation capabilities */
     uct_ib_mlx5_ext_iface_query_func_t             iface_query;                  /**< Iface query callback */
     uct_ib_mlx5_ext_ep_query_func_t                ep_query;                     /**< EP query callback */
     uct_ib_mlx5_ext_max_put_sgl_zcopy_count_func_t max_put_sgl_zcopy_count;      /**< Maximum PUT SGL zero-copy entry count callback */
     uct_ep_put_sgl_zcopy_func_t                    ep_put_sgl_zcopy;             /**< PUT SGL zero-copy callback */
-    uct_ep_outstanding_purge_func_t                ep_outstanding_purge;         /**< Outstanding operation purge callback */
+    uct_ib_mlx5_ext_ep_outstanding_purge_func_t    ep_outstanding_purge;         /**< Outstanding operation purge callback */
+    uct_ib_mlx5_ext_ep_priv_update_tx_func_t       ep_priv_update_tx;            /**< Update TX private data callback */
+    uct_ib_mlx5_ext_ep_priv_update_func_t          ep_priv_update;               /**< Update private data callback */
+    uct_ib_mlx5_ext_ep_priv_init_func_t            ep_priv_init;                 /**< Initialize private data callback */
+    uct_ib_mlx5_ext_ep_priv_cleanup_func_t         ep_priv_cleanup;              /**< Cleanup private data callback */
 } uct_ib_mlx5_ext_ops_t;
 
 /**
@@ -179,6 +281,21 @@ void uct_ib_mlx5_ext_unregister(const char *name);
  * @return UCS_OK on success, or an error if registration failed.
  */
 ucs_status_t uct_ib_mlx5_ext_register(const uct_ib_mlx5_ext_ops_t *ops);
+
+void uct_ib_mlx5_ext_ep_priv_update_tx(uct_ep_h ep, void *priv,
+                                       size_t message_length);
+
+size_t uct_ib_mlx5_ext_ep_priv_size(uct_iface_h iface);
+
+ucs_status_t
+uct_ib_mlx5_ext_ep_priv_update(uct_ep_h ep, void *priv,
+                               uct_ib_mlx5_ext_ep_priv_params_t *params);
+
+ucs_status_t
+uct_ib_mlx5_ext_ep_priv_init(uct_ep_h ep, void *priv,
+                             uct_ib_mlx5_ext_ep_priv_params_t *params);
+
+void uct_ib_mlx5_ext_ep_priv_cleanup(uct_ep_h ep, void *priv);
 
 ucs_status_t
 uct_ib_mlx5_ext_iface_query(uct_iface_h iface,
