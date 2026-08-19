@@ -24,7 +24,7 @@ static ucs_status_t
 uct_rc_mlx5_fill_am_inline_info(const uct_ib_mlx5_txwq_t *txwq,
                                 const struct mlx5_wqe_inl_data_seg *inl,
                                 size_t wqe_size, uct_ep_op_info_t *info,
-                                int *skip_p, void *callback_data)
+                                int *skip_p, uint8_t *callback_data)
 {
     size_t inline_length = ntohl(inl->byte_count) & ~MLX5_INLINE_SEG;
     uct_rc_mlx5_am_short_hdr_t *am;
@@ -37,7 +37,7 @@ uct_rc_mlx5_fill_am_inline_info(const uct_ib_mlx5_txwq_t *txwq,
 
     uct_ib_mlx5_txwq_copy_segs(txwq, inl + 1, callback_data, inline_length);
 
-    am = callback_data;
+    am = (uct_rc_mlx5_am_short_hdr_t*)callback_data;
     if ((am->rc_hdr.rc_hdr.am_id & UCT_RC_EP_FC_MASK) ==
         UCT_RC_EP_FC_PURE_GRANT) {
         *skip_p = 1;
@@ -95,11 +95,107 @@ uct_rc_mlx5_fill_am_bcopy_info(const uct_ib_mlx5_txwq_t *txwq,
 }
 
 static ucs_status_t
-uct_rc_mlx5_fill_am_op_info(const uct_ib_mlx5_txwq_t *txwq,
-                            uct_rc_iface_send_op_t *op,
-                            const struct mlx5_wqe_ctrl_seg *ctrl,
-                            size_t wqe_size, int *skip_p,
-                            uct_ep_op_info_t *info, void *callback_data)
+uct_rc_mlx5_fill_zcopy_iov(const uct_ib_mlx5_txwq_t *txwq,
+                           const void *first_dptr, size_t length,
+                           uct_rc_mlx5_op_callback_data_t *callback_data,
+                           size_t *iovcnt_p)
+{
+    const struct mlx5_wqe_data_seg *dptr;
+    uint32_t byte_count;
+    size_t iovcnt, i;
+
+    if (length % sizeof(*dptr)) {
+        return UCS_ERR_IO_ERROR;
+    }
+
+    iovcnt = length / sizeof(*dptr);
+    if (iovcnt > ucs_static_array_size(callback_data->iov)) {
+        return UCS_ERR_IO_ERROR;
+    }
+
+    dptr = uct_ib_mlx5_txwq_wrap_any((uct_ib_mlx5_txwq_t*)txwq,
+                                     (void*)first_dptr);
+    for (i = 0; i < iovcnt; ++i) {
+        byte_count = ntohl(dptr->byte_count);
+        if (byte_count & MLX5_INLINE_SEG) {
+            return UCS_ERR_IO_ERROR;
+        }
+
+        callback_data->memh[i].lkey  = ntohl(dptr->lkey);
+        callback_data->memh[i].rkey  = UCT_IB_INVALID_MKEY;
+        callback_data->memh[i].flags = 0;
+        callback_data->iov[i].buffer = (void*)(uintptr_t)be64toh(dptr->addr);
+        callback_data->iov[i].length = byte_count;
+        callback_data->iov[i].memh   = &callback_data->memh[i];
+        callback_data->iov[i].stride = 0;
+        callback_data->iov[i].count  = 1;
+        dptr = uct_ib_mlx5_txwq_wrap_any((uct_ib_mlx5_txwq_t*)txwq,
+                                         (void*)(dptr + 1));
+    }
+
+    *iovcnt_p = iovcnt;
+    return UCS_OK;
+}
+
+static ucs_status_t
+uct_rc_mlx5_fill_am_zcopy_info(const uct_ib_mlx5_txwq_t *txwq,
+                               uct_rc_iface_send_op_t *op,
+                               const struct mlx5_wqe_inl_data_seg *inl,
+                               size_t wqe_size, uct_ep_op_info_t *info,
+                               uct_rc_mlx5_op_callback_data_t *callback_data)
+{
+    uct_rc_mlx5_hdr_t *rch;
+    size_t inline_length, inline_seg_size, iovcnt;
+    ucs_status_t status;
+
+    if ((op == NULL) || (op->handler != uct_rc_ep_send_op_completion_handler)) {
+        return UCS_ERR_UNSUPPORTED;
+    }
+
+    inline_length   = ntohl(inl->byte_count) & ~MLX5_INLINE_SEG;
+    inline_seg_size = ucs_align_up_pow2(sizeof(*inl) + inline_length,
+                                        UCT_IB_MLX5_WQE_SEG_SIZE);
+    if ((inline_length < sizeof(*rch)) ||
+        ((sizeof(struct mlx5_wqe_ctrl_seg) + inline_seg_size) > wqe_size) ||
+        (inline_length > sizeof(callback_data->data))) {
+        return UCS_ERR_IO_ERROR;
+    }
+
+    status = uct_rc_mlx5_fill_zcopy_iov(
+            txwq, UCS_PTR_BYTE_OFFSET(inl, inline_seg_size),
+            wqe_size - sizeof(struct mlx5_wqe_ctrl_seg) - inline_seg_size,
+            callback_data, &iovcnt);
+    if (status != UCS_OK) {
+        return status;
+    }
+
+    uct_ib_mlx5_txwq_copy(txwq, inl + 1, callback_data->data, inline_length);
+    rch = (uct_rc_mlx5_hdr_t*)callback_data->data;
+
+    info->field_mask = UCT_EP_OP_INFO_FIELD_OPERATION | UCT_EP_OP_INFO_FIELD_AM;
+    if (op->user_comp != NULL) {
+        info->field_mask |= UCT_EP_OP_INFO_FIELD_COMP;
+        info->comp        = op->user_comp;
+    }
+
+    info->operation               = UCT_EP_OP_AM_ZCOPY;
+    info->am.field_mask           = UCT_EP_OP_INFO_AM_FIELD_AM_ID |
+                                    UCT_EP_OP_INFO_AM_FIELD_FLAGS |
+                                    UCT_EP_OP_INFO_AM_FIELD_HEADER_ZCOPY |
+                                    UCT_EP_OP_INFO_AM_FIELD_PAYLOAD_ZCOPY;
+    info->am.am_id                = rch->rc_hdr.am_id & ~UCT_RC_EP_FC_MASK;
+    info->am.flags                = 0;
+    info->am.header.zcopy.buffer  = rch + 1;
+    info->am.header.zcopy.length  = inline_length - sizeof(*rch);
+    info->am.payload.zcopy.iov    = callback_data->iov;
+    info->am.payload.zcopy.iovcnt = iovcnt;
+    return UCS_OK;
+}
+
+static ucs_status_t uct_rc_mlx5_fill_am_op_info(
+        const uct_ib_mlx5_txwq_t *txwq, uct_rc_iface_send_op_t *op,
+        const struct mlx5_wqe_ctrl_seg *ctrl, size_t wqe_size, int *skip_p,
+        uct_ep_op_info_t *info, uct_rc_mlx5_op_callback_data_t *callback_data)
 {
     const struct mlx5_wqe_inl_data_seg *inl;
     size_t inline_length, inline_wqe_size;
@@ -121,7 +217,8 @@ uct_rc_mlx5_fill_am_op_info(const uct_ib_mlx5_txwq_t *txwq,
                                                    skip_p, callback_data);
         }
 
-        return UCS_ERR_UNSUPPORTED;
+        return uct_rc_mlx5_fill_am_zcopy_info(txwq, op, inl, wqe_size, info,
+                                              callback_data);
     }
 
     if ((op != NULL) && ((void*)op->handler == (void*)ucs_mpool_put)) {
@@ -154,11 +251,14 @@ static void uct_rc_mlx5_fill_op_comp(uct_rc_iface_send_op_t *op,
     }
 }
 
-static ucs_status_t uct_rc_mlx5_fill_put_short_info(
-        const uct_ib_mlx5_txwq_t *txwq, uct_rc_iface_send_op_t *op,
-        const struct mlx5_wqe_inl_data_seg *inl,
-        const struct mlx5_wqe_raddr_seg *raddr, size_t wqe_size,
-        uct_ep_op_info_t *info, void *callback_data, size_t callback_data_size)
+static ucs_status_t
+uct_rc_mlx5_fill_put_short_info(const uct_ib_mlx5_txwq_t *txwq,
+                                uct_rc_iface_send_op_t *op,
+                                const struct mlx5_wqe_inl_data_seg *inl,
+                                const struct mlx5_wqe_raddr_seg *raddr,
+                                size_t wqe_size, uct_ep_op_info_t *info,
+                                uint8_t *callback_data,
+                                size_t callback_data_size)
 {
     size_t inline_length = ntohl(inl->byte_count) & ~MLX5_INLINE_SEG;
     size_t expected_size;
@@ -223,10 +323,12 @@ uct_rc_mlx5_fill_put_zcopy_info(uct_rc_iface_send_op_t *op,
     return UCS_OK;
 }
 
-static ucs_status_t uct_rc_mlx5_fill_put_op_info(
-        const uct_ib_mlx5_txwq_t *txwq, uct_rc_iface_send_op_t *op,
-        const struct mlx5_wqe_ctrl_seg *ctrl, size_t wqe_size,
-        uct_ep_op_info_t *info, void *callback_data, size_t callback_data_size)
+static ucs_status_t
+uct_rc_mlx5_fill_put_op_info(const uct_ib_mlx5_txwq_t *txwq,
+                             uct_rc_iface_send_op_t *op,
+                             const struct mlx5_wqe_ctrl_seg *ctrl,
+                             size_t wqe_size, uct_ep_op_info_t *info,
+                             uct_rc_mlx5_op_callback_data_t *callback_data)
 {
     const struct mlx5_wqe_raddr_seg *raddr;
     const struct mlx5_wqe_inl_data_seg *inl;
@@ -251,9 +353,9 @@ static ucs_status_t uct_rc_mlx5_fill_put_op_info(
     inl = uct_ib_mlx5_txwq_wrap_any((uct_ib_mlx5_txwq_t*)txwq,
                                     (void*)(raddr + 1));
     if (inl->byte_count & htonl(MLX5_INLINE_SEG)) {
-        return uct_rc_mlx5_fill_put_short_info(
-                txwq, op, inl, raddr, wqe_size, info, callback_data,
-                callback_data_size);
+        return uct_rc_mlx5_fill_put_short_info(txwq, op, inl, raddr, wqe_size,
+                                               info, callback_data->data,
+                                               sizeof(callback_data->data));
     }
 
     if ((op != NULL) &&
@@ -265,10 +367,12 @@ static ucs_status_t uct_rc_mlx5_fill_put_op_info(
             op, (const struct mlx5_wqe_data_seg*)inl, raddr, info);
 }
 
-ucs_status_t uct_rc_mlx5_fill_op_info(
-        const uct_ib_mlx5_txwq_t *txwq, uct_rc_iface_send_op_t *op,
-        const struct mlx5_wqe_ctrl_seg *ctrl, size_t wqe_size, int *skip_p,
-        uct_ep_op_info_t *info, void *callback_data, size_t callback_data_size)
+ucs_status_t
+uct_rc_mlx5_fill_op_info(const uct_ib_mlx5_txwq_t *txwq,
+                         uct_rc_iface_send_op_t *op,
+                         const struct mlx5_wqe_ctrl_seg *ctrl, size_t wqe_size,
+                         int *skip_p, uct_ep_op_info_t *info,
+                         uct_rc_mlx5_op_callback_data_t *callback_data)
 {
     *skip_p = 0;
 
@@ -278,8 +382,7 @@ ucs_status_t uct_rc_mlx5_fill_op_info(
                                            info, callback_data);
     case MLX5_OPCODE_RDMA_WRITE:
         return uct_rc_mlx5_fill_put_op_info(txwq, op, ctrl, wqe_size, info,
-                                            callback_data,
-                                            callback_data_size);
+                                            callback_data);
     default:
         return UCS_ERR_UNSUPPORTED;
     }

@@ -8,6 +8,7 @@
 #define UCT_RC_MLX5_COMMON_H
 
 #include <uct/ib/base/ib_device.h>
+#include <uct/ib/base/ib_md.h>
 #include <uct/ib/rc/base/rc_iface.h>
 #include <uct/ib/rc/base/rc_ep.h>
 #include <uct/ib/mlx5/ib_mlx5.h>
@@ -45,6 +46,12 @@
 #define UCT_RC_MLX5_OPCODE_MASK             0xff
 #define UCT_RC_MLX5_SINGLE_FRAG_MSG(_flags) \
     (((_flags) & UCT_CB_PARAM_FLAG_FIRST) && !((_flags) & UCT_CB_PARAM_FLAG_MORE))
+
+typedef struct {
+    uint8_t      data[UCT_IB_MLX5_MAX_SEND_WQE_SIZE];
+    uct_iov_t    iov[UCT_IB_MLX5_AM_ZCOPY_MAX_IOV];
+    uct_ib_mem_t memh[UCT_IB_MLX5_AM_ZCOPY_MAX_IOV];
+} uct_rc_mlx5_op_callback_data_t;
 
 #define UCT_RC_MLX5_CHECK_AM_ZCOPY(_id, _header_length, _length, _seg_size, _av_size) \
     UCT_CHECK_AM_ID(_id); \
@@ -708,11 +715,12 @@ uct_rc_mlx5_am_hdr_fill(uct_rc_mlx5_hdr_t *rch, uint8_t id)
     rch->rc_hdr.am_id = id;
 }
 
-ucs_status_t uct_rc_mlx5_fill_op_info(
-        const uct_ib_mlx5_txwq_t *txwq, uct_rc_iface_send_op_t *op,
-        const struct mlx5_wqe_ctrl_seg *ctrl, size_t wqe_size, int *skip_p,
-        uct_ep_op_info_t *info, void *callback_data,
-        size_t callback_data_size);
+ucs_status_t
+uct_rc_mlx5_fill_op_info(const uct_ib_mlx5_txwq_t *txwq,
+                         uct_rc_iface_send_op_t *op,
+                         const struct mlx5_wqe_ctrl_seg *ctrl, size_t wqe_size,
+                         int *skip_p, uct_ep_op_info_t *info,
+                         uct_rc_mlx5_op_callback_data_t *callback_data);
 
 #if HAVE_DECL_MLX5DV_CREATE_QP
 void uct_rc_mlx5_common_fill_dv_qp_attr(uct_rc_mlx5_iface_common_t *iface,

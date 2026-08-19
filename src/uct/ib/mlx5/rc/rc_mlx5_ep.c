@@ -927,7 +927,7 @@ ucs_status_t uct_rc_mlx5_ep_outstanding_purge(
     const uct_rc_mlx5_ft_rx_token_t *rx_token;
     const struct mlx5_wqe_ctrl_seg *ctrl;
     uct_rc_iface_send_op_t *op;
-    uint8_t callback_data[UCT_IB_MLX5_MAX_SEND_WQE_SIZE];
+    uct_rc_mlx5_op_callback_data_t callback_data;
     uct_ep_op_info_t info;
     uint16_t ci, end_ci, start_ci;
     uint32_t first_psn, receiver_next_psn, num_packets, total_packets;
@@ -1015,8 +1015,7 @@ ucs_status_t uct_rc_mlx5_ep_outstanding_purge(
 
         op = uct_rc_mlx5_ep_get_send_op(txqp, ci);
         status = uct_rc_mlx5_fill_op_info(txwq, op, ctrl, wqe_size, &skip,
-                                          &info, callback_data,
-                                          sizeof(callback_data));
+                                          &info, &callback_data);
 
         if (status != UCS_OK) {
             ucs_error("failed to fill outstanding op info ep %p ci %u "
