@@ -1014,12 +1014,9 @@ ucs_status_t uct_rc_mlx5_ep_outstanding_purge(
         }
 
         op = uct_rc_mlx5_ep_get_send_op(txqp, ci);
-        if (opcode == MLX5_OPCODE_SEND) {
-            status = uct_rc_mlx5_fill_am_op_info(txwq, op, ctrl, wqe_size,
-                                                 &skip, &info, callback_data);
-        } else {
-            status = UCS_ERR_UNSUPPORTED;
-        }
+        status = uct_rc_mlx5_fill_op_info(txwq, op, ctrl, wqe_size, &skip,
+                                          &info, callback_data,
+                                          sizeof(callback_data));
 
         if (status != UCS_OK) {
             ucs_error("failed to fill outstanding op info ep %p ci %u "
