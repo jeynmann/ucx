@@ -47,10 +47,16 @@
 #define UCT_RC_MLX5_SINGLE_FRAG_MSG(_flags) \
     (((_flags) & UCT_CB_PARAM_FLAG_FIRST) && !((_flags) & UCT_CB_PARAM_FLAG_MORE))
 
+#define UCT_RC_MLX5_RMA_MAX_IOV(_av_size) \
+    ((UCT_IB_MLX5_MAX_SEND_WQE_SIZE - \
+      ((_av_size) + sizeof(struct mlx5_wqe_raddr_seg) + \
+       sizeof(struct mlx5_wqe_ctrl_seg))) / \
+     sizeof(struct mlx5_wqe_data_seg))
+
 typedef struct {
     uint8_t      data[UCT_IB_MLX5_MAX_SEND_WQE_SIZE];
-    uct_iov_t    iov[UCT_IB_MLX5_AM_ZCOPY_MAX_IOV];
-    uct_ib_mem_t memh[UCT_IB_MLX5_AM_ZCOPY_MAX_IOV];
+    uct_iov_t    iov[UCT_RC_MLX5_RMA_MAX_IOV(0)];
+    uct_ib_mem_t memh[UCT_RC_MLX5_RMA_MAX_IOV(0)];
 } uct_rc_mlx5_op_callback_data_t;
 
 #define UCT_RC_MLX5_CHECK_AM_ZCOPY(_id, _header_length, _length, _seg_size, _av_size) \
@@ -140,12 +146,6 @@ enum {
     UCT_RC_MLX5_CQE_APP_OP_TM_REMOVE         = 0x6,
     UCT_RC_MLX5_CQE_APP_OP_TM_CONSUMED_MSG   = 0xA
 };
-
-#define UCT_RC_MLX5_RMA_MAX_IOV(_av_size) \
-    ((UCT_IB_MLX5_MAX_SEND_WQE_SIZE - ((_av_size) + \
-     sizeof(struct mlx5_wqe_raddr_seg) + sizeof(struct mlx5_wqe_ctrl_seg))) / \
-     sizeof(struct mlx5_wqe_data_seg))
-
 
 #if IBV_HW_TM
 #  define UCT_RC_MLX5_TM_EAGER_ZCOPY_MAX_IOV(_av_size) \
