@@ -290,7 +290,7 @@ uct_rc_mlx5_base_ep_put_sgl_zcopy(uct_ep_h tl_ep, void * const *buffers,
         curr = uct_ib_mlx5_txwq_wrap_exact(txwq, curr);
         pi++;
         total       += lengths[i];
-        num_packets += uct_rc_mlx5_num_packets(iface, lengths[i]);
+        num_packets += uct_rc_mlx5_ep_num_packets(ep, lengths[i]);
     }
 
     res_count         = pi - 1 - txwq->prev_sw_pi;
@@ -700,6 +700,8 @@ void uct_rc_mlx5_base_ep_vfs_populate(uct_rc_ep_t *rc_ep)
     uct_rc_mlx5_base_ep_t *ep = ucs_derived_of(rc_ep, uct_rc_mlx5_base_ep_t);
 
     ucs_vfs_obj_add_dir(rc_iface, ep, "ep/%p", ep);
+    ucs_vfs_obj_add_ro_file(ep, ucs_vfs_show_primitive, &ep->path_mtu_shift,
+                            UCS_VFS_TYPE_U8, "path_mtu_shift");
     uct_ib_mlx5_txwq_vfs_populate(&ep->tx.wq, ep);
     uct_rc_txqp_vfs_populate(&ep->super.txqp, ep);
 }
@@ -978,6 +980,8 @@ uct_rc_mlx5_ep_connect_to_ep_v2(uct_ep_h tl_ep,
         return status;
     }
 
+    ep->super.path_mtu_shift = ucs_ilog2(uct_ib_mtu_value(path_mtu));
+
     ep->super.super.atomic_mr_offset = uct_ib_md_atomic_offset(
             rc_addr->atomic_mr_id);
     ep->super.super.flags           |= UCT_RC_EP_FLAG_CONNECTED;
@@ -1222,7 +1226,8 @@ UCS_CLASS_INIT_FUNC(uct_rc_mlx5_base_ep_t, const uct_ep_params_t *params)
         goto err_event_unreg;
     }
 
-    self->tx.wq.bb_max = ucs_min(self->tx.wq.bb_max, iface->tx.bb_max);
+    self->tx.wq.bb_max   = ucs_min(self->tx.wq.bb_max, iface->tx.bb_max);
+    self->path_mtu_shift = 0;
     uct_rc_txqp_available_set(&self->super.txqp, self->tx.wq.bb_max);
     uct_rc_mlx5_iface_common_prepost_recvs(iface);
     return UCS_OK;

@@ -52,6 +52,7 @@ typedef struct uct_rc_mlx5_base_ep {
     struct {
         uct_ib_mlx5_txwq_t   wq;
     } tx;
+    uint8_t path_mtu_shift;
 } uct_rc_mlx5_base_ep_t;
 
 
