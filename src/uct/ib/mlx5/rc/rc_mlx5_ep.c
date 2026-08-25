@@ -518,6 +518,7 @@ uct_rc_mlx5_base_ep_atomic_post(uct_ep_h tl_ep, unsigned opcode,
                                remote_addr, ib_rkey,
                                compare_mask, compare, swap_mask, swap_add,
                                0, fm_ce_se, 0, 0, INT_MAX, NULL);
+    uct_rc_mlx5_txwq_add_psn(&ep->tx.wq, 1);
 
     uct_rc_ep_enable_flush_remote(&ep->super);
     UCT_TL_EP_STAT_ATOMIC(&ep->super.super);
@@ -702,6 +703,9 @@ void uct_rc_mlx5_base_ep_vfs_populate(uct_rc_ep_t *rc_ep)
     ucs_vfs_obj_add_dir(rc_iface, ep, "ep/%p", ep);
     ucs_vfs_obj_add_ro_file(ep, ucs_vfs_show_primitive, &ep->path_mtu_shift,
                             UCS_VFS_TYPE_U8, "path_mtu_shift");
+    ucs_vfs_obj_add_ro_file(ep, ucs_vfs_show_primitive,
+                            &ep->tx.wq.next_first_psn, UCS_VFS_TYPE_U32,
+                            "next_first_psn");
     uct_ib_mlx5_txwq_vfs_populate(&ep->tx.wq, ep);
     uct_rc_txqp_vfs_populate(&ep->super.txqp, ep);
 }

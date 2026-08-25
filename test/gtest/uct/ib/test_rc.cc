@@ -1332,33 +1332,21 @@ public:
 
         test_rc::init();
 
-        attr.field_mask = UCT_IFACE_ATTR_FIELD_CAP_FLAGS |
-                          UCT_IFACE_ATTR_FIELD_TX_TOKEN_LENGTH |
-                          UCT_IFACE_ATTR_FIELD_RX_TOKEN_LENGTH;
+        attr.field_mask = UCT_IFACE_ATTR_FIELD_CAP_FLAGS;
         ASSERT_UCS_OK(uct_iface_query_v2(m_e1->iface(), &attr));
         if (!(attr.cap.flags & UCT_IFACE_FLAG_V2_QUERY_TOKEN)) {
             UCS_TEST_SKIP_R("token query is not supported");
         }
 
+        attr.field_mask = UCT_IFACE_ATTR_FIELD_TX_TOKEN_LENGTH |
+                          UCT_IFACE_ATTR_FIELD_RX_TOKEN_LENGTH;
+        ASSERT_UCS_OK(uct_iface_query_v2(m_e1->iface(), &attr));
         ASSERT_EQ(sizeof(__be32), attr.tx_token_length);
         ASSERT_EQ(sizeof(__be32), attr.rx_token_length);
     }
 
 protected:
     static constexpr uint32_t NUM_MESSAGES = 10;
-
-    struct pack_arg {
-        const void *buffer;
-        size_t     length;
-    };
-
-    static size_t pack_cb(void *dest, void *arg)
-    {
-        pack_arg *pack = static_cast<pack_arg*>(arg);
-
-        memcpy(dest, pack->buffer, pack->length);
-        return pack->length;
-    }
 
     static void unpack_cb(void *arg, const void *data, size_t length)
     {
@@ -1369,9 +1357,11 @@ protected:
     {
     }
 
-    static ucs_status_t am_handler(void *rx_count, void*, size_t, unsigned)
+    static ucs_status_t am_handler(void *arg, void*, size_t, unsigned)
     {
-        ++*static_cast<uint32_t*>(rx_count);
+        uint32_t *rx_count = static_cast<uint32_t*>(arg);
+
+        ++*rx_count;
         return UCS_OK;
     }
 
@@ -1434,6 +1424,7 @@ UCS_TEST_SKIP_COND_P(test_rc_mlx5_token_query, am_short,
 
     ASSERT_UCS_OK(uct_iface_set_am_handler(m_e2->iface(), 0, am_handler,
                                            &rx_count, 0));
+
     for (uint32_t i = 0; i < NUM_MESSAGES; ++i) {
         UCT_TEST_CALL_AND_TRY_AGAIN(uct_ep_am_short(m_e1->ep(0), 0, i, NULL, 0),
                                     status);
@@ -1454,6 +1445,7 @@ UCS_TEST_SKIP_COND_P(test_rc_mlx5_token_query, am_short_iov,
 
     ASSERT_UCS_OK(uct_iface_set_am_handler(m_e2->iface(), 0, am_handler,
                                            &rx_count, 0));
+
     for (uint32_t i = 0; i < NUM_MESSAGES; ++i) {
         UCT_TEST_CALL_AND_TRY_AGAIN(uct_ep_am_short_iov(m_e1->ep(0), 0, &iov,
                                                         1),
@@ -1471,15 +1463,15 @@ UCS_TEST_SKIP_COND_P(test_rc_mlx5_token_query, am_bcopy,
     uint32_t rx_count = 0;
     size_t length     = test_length(0, m_e1->iface_attr().cap.am.max_bcopy);
     mapped_buffer buffer(length, *m_e1);
-    pack_arg pack = {buffer.ptr(), length};
     ssize_t packed;
 
     ASSERT_UCS_OK(uct_iface_set_am_handler(m_e2->iface(), 0, am_handler,
                                            &rx_count, 0));
 
     for (uint32_t i = 0; i < NUM_MESSAGES; ++i) {
-        UCT_TEST_CALL_AND_TRY_AGAIN(uct_ep_am_bcopy(m_e1->ep(0), 0, pack_cb,
-                                                    &pack, 0),
+        UCT_TEST_CALL_AND_TRY_AGAIN(uct_ep_am_bcopy(m_e1->ep(0), 0,
+                                                    mapped_buffer::pack,
+                                                    &buffer, 0),
                                     packed);
         ASSERT_EQ(static_cast<ssize_t>(length), packed);
     }
@@ -1500,6 +1492,7 @@ UCS_TEST_SKIP_COND_P(test_rc_mlx5_token_query, am_zcopy,
 
     ASSERT_UCS_OK(uct_iface_set_am_handler(m_e2->iface(), 0, am_handler,
                                            &rx_count, 0));
+
     for (uint32_t i = 0; i < NUM_MESSAGES; ++i) {
         UCT_TEST_CALL_AND_TRY_AGAIN(uct_ep_am_zcopy(m_e1->ep(0), 0, NULL, 0,
                                                     buffer.iov(), 1, 0, &comp),
@@ -1540,12 +1533,12 @@ UCS_TEST_SKIP_COND_P(test_rc_mlx5_token_query, put_bcopy,
     size_t length = test_length(0, m_e1->iface_attr().cap.put.max_bcopy);
     mapped_buffer local(length, *m_e1);
     mapped_buffer remote(length, *m_e2);
-    pack_arg pack = {local.ptr(), length};
     ssize_t packed;
 
     for (uint32_t i = 0; i < NUM_MESSAGES; ++i) {
-        UCT_TEST_CALL_AND_TRY_AGAIN(uct_ep_put_bcopy(m_e1->ep(0), pack_cb,
-                                                     &pack, remote.addr(),
+        UCT_TEST_CALL_AND_TRY_AGAIN(uct_ep_put_bcopy(m_e1->ep(0),
+                                                     mapped_buffer::pack,
+                                                     &local, remote.addr(),
                                                      remote.rkey()),
                                     packed);
         ASSERT_EQ(static_cast<ssize_t>(length), packed);
@@ -1588,6 +1581,7 @@ UCS_TEST_P(test_rc_mlx5_token_query, put_sgl_zcopy)
     attr_v2.field_mask = UCT_IFACE_ATTR_FIELD_CAP_FLAGS |
                          UCT_IFACE_ATTR_FIELD_MAX_PUT_SGL_ZCOPY_COUNT;
     ASSERT_UCS_OK(uct_iface_query_v2(m_e1->iface(), &attr_v2));
+
     if (!(attr_v2.cap.flags & UCT_IFACE_FLAG_V2_PUT_SGL_ZCOPY)) {
         UCS_TEST_SKIP_R("put_sgl_zcopy is not supported");
     }
@@ -1595,10 +1589,12 @@ UCS_TEST_P(test_rc_mlx5_token_query, put_sgl_zcopy)
     const size_t count  = ucs_min(2ul, attr_v2.max_put_sgl_zcopy_count);
     const size_t length = test_length(attr.cap.put.min_zcopy,
                                       attr.cap.put.max_zcopy);
+
     mapped_buffer local1(length, *m_e1);
     mapped_buffer local2(length, *m_e1);
     mapped_buffer remote1(length, *m_e2);
     mapped_buffer remote2(length, *m_e2);
+
     void *buffers[]         = {local1.ptr(), local2.ptr()};
     size_t lengths[]        = {length, length};
     uct_mem_h memhs[]       = {local1.memh(), local2.memh()};
