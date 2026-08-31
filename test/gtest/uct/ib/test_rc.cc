@@ -1482,6 +1482,8 @@ protected:
         uct_rc_iface_send_op_t *op, *t_op;
         size_t wqe_size;
 
+        memset(&callback_data, 0, sizeof(callback_data));
+
         while (ci != txwq->sw_pi) {
             ctrl     = static_cast<const struct mlx5_wqe_ctrl_seg*>(
                     uct_ib_mlx5_txwq_get_wqe(txwq, ci));
@@ -1507,6 +1509,7 @@ protected:
             ci += ucs_div_round_up(wqe_size, MLX5_SEND_WQE_BB);
         }
 
+        uct_rc_mlx5_op_callback_data_cleanup(&callback_data);
         return UCS_OK;
     }
 
@@ -1555,6 +1558,21 @@ UCS_TEST_SKIP_COND_P(test_rc_purge_outstanding, put_short,
 {
     test_put(UCT_EP_OP_PUT_SHORT, 8);
 }
+
+#if HAVE_IBV_DM
+UCS_TEST_SKIP_COND_P(test_rc_purge_outstanding, put_short_dm,
+                     !check_caps(UCT_IFACE_FLAG_PUT_SHORT))
+{
+    uct_rc_mlx5_iface_t *iface = ucs_derived_of(m_e1->iface(),
+                                                uct_rc_mlx5_iface_t);
+
+    if (iface->dm.dm == NULL) {
+        UCS_TEST_SKIP_R("mlx5 device memory is not available");
+    }
+
+    test_put(UCT_EP_OP_PUT_SHORT, UCT_IB_MLX5_PUT_MAX_SHORT(0) + 1);
+}
+#endif
 
 UCS_TEST_SKIP_COND_P(test_rc_purge_outstanding, put_bcopy,
                      !check_caps(UCT_IFACE_FLAG_PUT_BCOPY))

@@ -255,7 +255,11 @@ typedef struct {
             uct_ib_mem_t memh[UCT_RC_MLX5_RMA_MAX_IOV(0)];
         };
     };
+    void *dm_data;
 } uct_rc_mlx5_op_callback_data_t;
+
+void uct_rc_mlx5_op_callback_data_cleanup(
+        uct_rc_mlx5_op_callback_data_t *callback_data);
 
 ucs_status_t
 uct_rc_mlx5_op_info_fill(uct_ep_op_info_t *info, const uct_ib_mlx5_txwq_t *txwq,
@@ -339,6 +343,7 @@ typedef struct uct_rc_mlx5_ctx_priv {
 typedef struct uct_mlx5_dm_data {
     uct_worker_tl_data_t super;
     ucs_mpool_t          mp;
+    ucs_mpool_t          ft_mp;
     struct ibv_mr        *mr;
     struct ibv_dm        *dm;
     void                 *start_va;

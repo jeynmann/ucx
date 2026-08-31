@@ -16,6 +16,41 @@
 #include <ucs/arch/bitops.h>
 #include <ucs/profile/profile.h>
 
+void uct_rc_mlx5_op_callback_data_cleanup(
+        uct_rc_mlx5_op_callback_data_t *callback_data)
+{
+    if (callback_data->dm_data != NULL) {
+        ucs_mpool_put(callback_data->dm_data);
+        callback_data->dm_data = NULL;
+    }
+}
+
+#if HAVE_IBV_DM
+static ucs_status_t
+uct_rc_mlx5_op_info_copy_from_dm(uct_rc_iface_send_desc_t *desc,
+                                 const void *buffer, size_t length,
+                                 uct_rc_mlx5_op_callback_data_t *callback_data)
+{
+    uct_mlx5_dm_data_t *dm = ucs_container_of(ucs_mpool_obj_owner(desc),
+                                              uct_mlx5_dm_data_t, mp);
+    size_t copy_length     = ucs_align_up(length, sizeof(uint64_t));
+    size_t offset          = UCS_PTR_BYTE_DIFF(dm->start_va, buffer);
+
+    if (callback_data->dm_data == NULL) {
+        ucs_assert(copy_length <= dm->seg_len);
+        callback_data->dm_data = ucs_mpool_get(&dm->ft_mp);
+        if (callback_data->dm_data == NULL) {
+            return UCS_ERR_NO_MEMORY;
+        }
+    }
+
+    if (ibv_memcpy_from_dm(callback_data->dm_data, dm->dm, offset,
+                           copy_length) != 0) {
+        return UCS_ERR_IO_ERROR;
+    }
+}
+#endif
+
 static void uct_rc_mlx5_get_dptr_buffer(uct_rc_iface_send_op_t *op,
                                         const struct mlx5_wqe_data_seg *dptr,
                                         void **buffer_p, size_t *length_p,
@@ -124,19 +159,35 @@ out:
     info->field_mask |= UCT_EP_OP_INFO_FIELD_OPERATION;
 }
 
-static ucs_status_t
-uct_rc_mlx5_op_info_fill_put_bcopy(uct_ep_op_info_t *info,
-                                   uct_rc_iface_send_op_t *op,
-                                   const struct mlx5_wqe_data_seg *dptr,
-                                   const struct mlx5_wqe_raddr_seg *raddr)
+static ucs_status_t uct_rc_mlx5_op_info_fill_put_bcopy(
+        uct_ep_op_info_t *info, uct_rc_iface_send_op_t *op,
+        const struct mlx5_wqe_data_seg *dptr,
+        const struct mlx5_wqe_raddr_seg *raddr,
+        uct_rc_mlx5_op_callback_data_t *callback_data)
 {
+#if HAVE_IBV_DM
+    uct_rc_iface_send_desc_t *desc = ucs_derived_of(op,
+                                                    uct_rc_iface_send_desc_t);
+    ucs_status_t status;
+#endif
     size_t length;
     void *buffer;
     int is_dm;
 
     uct_rc_mlx5_get_dptr_buffer(op, dptr, &buffer, &length, &is_dm);
     if (is_dm) {
+#if HAVE_IBV_DM
+        status = uct_rc_mlx5_op_info_copy_from_dm(desc, buffer, length,
+                                                  callback_data);
+        if (status != UCS_OK) {
+            ucs_diag("failed to copy from dm length %zu status %s", length, ucs_status_string(status));
+            return status;
+        }
+
+        buffer = callback_data->dm_data;
+#else
         return UCS_ERR_UNSUPPORTED;
+#endif
     }
 
     info->rma.payload.data.buffer = buffer;
@@ -222,7 +273,8 @@ static ucs_status_t uct_rc_mlx5_op_info_fill_put(
 
     if ((void*)op->handler == (void*)ucs_mpool_put) {
         return uct_rc_mlx5_op_info_fill_put_bcopy(
-                info, op, (const struct mlx5_wqe_data_seg*)inl, raddr);
+                info, op, (const struct mlx5_wqe_data_seg*)inl, raddr,
+                callback_data);
     }
 
     ucs_diag("unsupported put op %p handler %s", op,
@@ -1007,6 +1059,14 @@ static ucs_mpool_ops_t uct_dm_iface_mpool_ops = {
     .obj_str       = NULL
 };
 
+static ucs_mpool_ops_t uct_dm_data_mpool_ops = {
+    .chunk_alloc   = ucs_mpool_chunk_malloc,
+    .chunk_release = ucs_mpool_chunk_free,
+    .obj_init      = NULL,
+    .obj_cleanup   = NULL,
+    .obj_str       = NULL
+};
+
 
 static int uct_rc_mlx5_iface_common_dm_device_cmp(uct_mlx5_dm_data_t *dm_data,
                                                   uct_rc_iface_t *iface,
@@ -1075,10 +1135,23 @@ uct_rc_mlx5_iface_common_dm_tl_init(uct_mlx5_dm_data_t *data,
         goto failed_mpool;
     }
 
+    ucs_mpool_params_reset(&mp_params);
+    mp_params.elem_size       = data->seg_len;
+    mp_params.elems_per_chunk = data->seg_count;
+    mp_params.max_elems       = data->seg_count;
+    mp_params.ops             = &uct_dm_data_mpool_ops;
+    mp_params.name            = "mlx5_dm_data";
+    status = ucs_mpool_init(&mp_params, &data->ft_mp);
+    if (status != UCS_OK) {
+        goto failed_data_mpool;
+    }
+
     /* DM initialization may fail due to any reason, just
      * free resources & continue without DM */
     return UCS_OK;
 
+failed_data_mpool:
+    ucs_mpool_cleanup(&data->mp, 1);
 failed_mpool:
     ibv_dereg_mr(data->mr);
 failed_mr:
@@ -1092,6 +1165,7 @@ static void uct_rc_mlx5_iface_common_dm_tl_cleanup(uct_mlx5_dm_data_t *data)
     ucs_assert(data->dm != NULL);
     ucs_assert(data->mr != NULL);
 
+    ucs_mpool_cleanup(&data->ft_mp, 1);
     ucs_mpool_cleanup(&data->mp, 1);
     ibv_dereg_mr(data->mr);
     ibv_free_dm(data->dm);
