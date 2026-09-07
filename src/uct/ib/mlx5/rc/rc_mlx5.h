@@ -25,6 +25,21 @@
                                    UCS_STATUS_PTR(UCS_ERR_NO_RESOURCE))
 
 
+static UCS_F_ALWAYS_INLINE uct_completion_t *
+uct_rc_mlx5_iface_get_put_comp(uct_rc_mlx5_iface_common_t *iface,
+                               uct_completion_t *comp)
+{
+    if (comp != NULL) {
+        return comp;
+    }
+
+    ucs_assert(iface->tx.default_put_comp.count >= 1);
+    ++iface->tx.default_put_comp.count;
+
+    return &iface->tx.default_put_comp;
+}
+
+
 enum {
     UCT_RC_MLX5_IFACE_ADDR_TYPE_BASIC,
 

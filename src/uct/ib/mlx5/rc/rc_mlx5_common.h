@@ -345,6 +345,7 @@ KHASH_INIT(uct_rc_mlx5_tag_addrs, void*, char, 0, uct_rc_mlx5_tag_addr_hash,
 typedef struct uct_rc_mlx5_iface_common {
     uct_rc_iface_t                     super;
     struct {
+        uct_completion_t               default_put_comp;
         ucs_mpool_t                    atomic_desc_mp;
         uct_ib_mlx5_mmio_mode_t        mmio_mode;
         uint16_t                       bb_max;     /* limit number of outstanding WQE BBs */

@@ -867,6 +867,10 @@ UCS_CLASS_INIT_FUNC(uct_rc_mlx5_iface_common_t, uct_iface_ops_t *tl_ops,
     self->tx.mmio_mode        = mlx5_config->super.mmio_mode;
     self->tx.bb_max           = ucs_min(mlx5_config->tx_max_bb, UINT16_MAX);
     self->tm.am_desc.super.cb = uct_rc_mlx5_release_desc;
+    self->tx.default_put_comp.func   = (uct_completion_callback_t)
+            ucs_empty_function;
+    self->tx.default_put_comp.count  = 1;
+    self->tx.default_put_comp.status = UCS_OK;
 
     if (!UCT_RC_MLX5_MP_ENABLED(self)) {
         self->tm.am_desc.offset = self->super.super.config.rx_headroom_offset;
