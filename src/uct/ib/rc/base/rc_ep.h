@@ -263,6 +263,12 @@ void uct_rc_ep_send_op_completion_handler(uct_rc_iface_send_op_t *op,
 void uct_rc_ep_flush_op_completion_handler(uct_rc_iface_send_op_t *op,
                                            const void *resp);
 
+void uct_rc_ep_put_sgl_zcopy_completion_handler(uct_rc_iface_send_op_t *op,
+                                                const void *resp);
+
+void uct_rc_ep_check_completion_handler(uct_rc_iface_send_op_t *op,
+                                        const void *resp);
+
 ucs_status_t uct_rc_ep_pending_add(uct_ep_h tl_ep, uct_pending_req_t *n,
                                    unsigned flags);
 
@@ -337,6 +343,13 @@ static inline void uct_rc_txqp_available_set(uct_rc_txqp_t *txqp, int16_t val)
 static inline uint16_t uct_rc_txqp_unsignaled(uct_rc_txqp_t *txqp)
 {
     return txqp->unsignaled;
+}
+
+static void UCT_F_ALWAYS_INLINE uct_rc_ep_send_op_completion_handler_common(uct_rc_iface_send_op_t *op,
+                                                                            const void *resp)
+{
+    uct_invoke_completion(op->user_comp, UCS_OK);
+    uct_rc_iface_put_send_op(op);
 }
 
 static UCS_F_ALWAYS_INLINE
