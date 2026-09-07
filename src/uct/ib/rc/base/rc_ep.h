@@ -424,6 +424,7 @@ uct_rc_txqp_add_send_comp(uct_rc_iface_t *iface, uct_rc_txqp_t *txqp,
     op->user_comp = comp;
     op->flags    |= flags;
     op->length    = length;
+    op->count     = iovcnt;
     if (op->flags & UCT_RC_IFACE_SEND_OP_FLAG_IOV) {
         /* coverity[dead_error_line] */
         uct_rc_ep_send_op_set_iov(op, iov, iovcnt);

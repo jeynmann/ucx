@@ -220,8 +220,7 @@ ucs_status_t uct_rc_mlx5_base_ep_put_zcopy(uct_ep_h tl_ep, const uct_iov_t *iov,
     uct_rc_mlx5_ep_fence_put(iface, &ep->tx.wq, &rkey, &remote_addr,
                              ep->super.atomic_mr_offset, &fm_ce_se);
 
-    comp = uct_rc_mlx5_iface_get_put_comp(iface, comp);
-
+    comp   = uct_rc_mlx5_iface_get_put_comp(iface, comp);
     status = uct_rc_mlx5_base_ep_zcopy_post(
             ep, MLX5_OPCODE_RDMA_WRITE, iov, iovcnt, 0ul, 0, NULL, 0,
             remote_addr, rkey, 0ul, 0, 0, NULL,
@@ -337,9 +336,9 @@ uct_rc_mlx5_base_ep_put_sgl_zcopy(uct_ep_h tl_ep, void * const *buffers,
 
     comp = uct_rc_mlx5_iface_get_put_comp(iface, comp);
     uct_rc_txqp_add_send_comp(&iface->super, &ep->super.txqp,
-                              uct_rc_ep_put_sgl_zcopy_completion_handler,
-                              comp, txwq->sig_pi,
-                              UCT_RC_IFACE_SEND_OP_FLAG_ZCOPY, NULL, 0, count);
+                              uct_rc_ep_put_sgl_zcopy_completion_handler, comp,
+                              txwq->sig_pi, UCT_RC_IFACE_SEND_OP_FLAG_ZCOPY,
+                              NULL, count, total);
 
     UCT_TL_EP_STAT_OP(&ep->super.super, PUT, ZCOPY, total);
     uct_rc_ep_enable_flush_remote(&ep->super);
@@ -720,6 +719,7 @@ uct_rc_mlx5_base_ep_post_check(uct_ep_h tl_ep, uct_completion_t *comp)
     /* Always use the check handler (also for comp == NULL) so that the WQE
      * is distinguishable from a zero-length PUT_SHORT during outstanding
      * WQE parsing. */
+    comp = uct_rc_mlx5_iface_get_put_comp(iface, comp);
     uct_rc_ep_init_send_op(op, 0, comp, uct_rc_ep_check_completion_handler);
     uct_rc_iface_send_op_set_name(op, "rc_mlx5_ep_check");
 

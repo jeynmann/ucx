@@ -296,36 +296,41 @@ void uct_rc_ep_get_zcopy_completion_handler(uct_rc_iface_send_op_t *op,
     uct_rc_ep_send_op_completion_handler(op, resp);
 }
 
-void uct_rc_ep_send_op_completion_handler(uct_rc_iface_send_op_t *op,
-                                          const void *resp)
+static void UCT_F_ALWAYS_INLINE uct_rc_ep_send_op_completion_common(
+        uct_rc_iface_send_op_t *op, const void *resp)
 {
     uct_rc_ep_send_op_completion_handler_common(op, resp);
 }
 
-void uct_rc_ep_flush_op_completion_handler(uct_rc_iface_send_op_t *op,
-                                           const void *resp)
+void uct_rc_ep_send_op_completion_handler(uct_rc_iface_send_op_t *op,
+                                          const void *resp)
 {
-    uct_invoke_completion(op->user_comp, UCS_OK);
-    ucs_mpool_put(op);
+    uct_rc_ep_send_op_completion_common(op, resp);
 }
 
 void uct_rc_ep_put_sgl_zcopy_completion_handler(uct_rc_iface_send_op_t *op,
                                                 const void *resp)
 {
-    /* The op comes from the iface free_ops list (via uct_rc_txqp_add_send_comp),
-     * same as uct_rc_ep_send_op_completion_handler. */
-    uct_rc_ep_send_op_completion_handler_common(op, resp);
+    uct_rc_ep_send_op_completion_common(op, resp);
+}
+
+static void UCT_F_ALWAYS_INLINE uct_rc_ep_flush_op_completion_common(
+        uct_rc_iface_send_op_t *op, const void *resp)
+{
+    uct_invoke_completion(op->user_comp, UCS_OK);
+    ucs_mpool_put(op);
+}
+
+void uct_rc_ep_flush_op_completion_handler(uct_rc_iface_send_op_t *op,
+                                           const void *resp)
+{
+    uct_rc_ep_flush_op_completion_common(op, resp);
 }
 
 void uct_rc_ep_check_completion_handler(uct_rc_iface_send_op_t *op,
                                         const void *resp)
 {
-    /* ep_check ops are allocated from iface->tx.send_op_mp (same as flush
-     * completion ops), so they must be released with ucs_mpool_put. */
-    if (op->user_comp != NULL) {
-        uct_invoke_completion(op->user_comp, UCS_OK);
-    }
-    ucs_mpool_put(op);
+    uct_rc_ep_flush_op_completion_common(op, resp);
 }
 
 ucs_status_t uct_rc_ep_pending_add(uct_ep_h tl_ep, uct_pending_req_t *n,
