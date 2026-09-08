@@ -341,8 +341,8 @@ struct uct_rc_iface_send_op {
     uint16_t                      sn;
     uint16_t                      flags;
     unsigned                      length;
+    unsigned                      count;       /* SGL entry count */
     union {
-        size_t                    count;       /* count of elements in SGL or IOV */
         void                      *buffer;     /* atomics / desc /
                                                   FC_PURE_GRANT request */
         void                      *unpack_arg; /* get_bcopy / desc */

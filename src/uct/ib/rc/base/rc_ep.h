@@ -345,13 +345,6 @@ static inline uint16_t uct_rc_txqp_unsignaled(uct_rc_txqp_t *txqp)
     return txqp->unsignaled;
 }
 
-static void UCT_F_ALWAYS_INLINE uct_rc_ep_send_op_completion_handler_common(uct_rc_iface_send_op_t *op,
-                                                                            const void *resp)
-{
-    uct_invoke_completion(op->user_comp, UCS_OK);
-    uct_rc_iface_put_send_op(op);
-}
-
 static UCS_F_ALWAYS_INLINE
 int uct_rc_fc_has_resources(uct_rc_iface_t *iface, uct_rc_fc_t *fc)
 {

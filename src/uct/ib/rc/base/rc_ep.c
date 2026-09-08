@@ -296,41 +296,40 @@ void uct_rc_ep_get_zcopy_completion_handler(uct_rc_iface_send_op_t *op,
     uct_rc_ep_send_op_completion_handler(op, resp);
 }
 
-static void UCT_F_ALWAYS_INLINE uct_rc_ep_send_op_completion_common(
-        uct_rc_iface_send_op_t *op, const void *resp)
-{
-    uct_rc_ep_send_op_completion_handler_common(op, resp);
-}
-
 void uct_rc_ep_send_op_completion_handler(uct_rc_iface_send_op_t *op,
                                           const void *resp)
 {
-    uct_rc_ep_send_op_completion_common(op, resp);
+    uct_invoke_completion(op->user_comp, UCS_OK);
+    uct_rc_iface_put_send_op(op);
 }
 
+/* Outstanding purge can tell put sgl zcopy from put zcopy by handler.
+ * The operation may not have a user completion (comp == NULL). */
 void uct_rc_ep_put_sgl_zcopy_completion_handler(uct_rc_iface_send_op_t *op,
                                                 const void *resp)
 {
-    uct_rc_ep_send_op_completion_common(op, resp);
-}
-
-static void UCT_F_ALWAYS_INLINE uct_rc_ep_flush_op_completion_common(
-        uct_rc_iface_send_op_t *op, const void *resp)
-{
-    uct_invoke_completion(op->user_comp, UCS_OK);
-    ucs_mpool_put(op);
+    if (op->user_comp != NULL) {
+        uct_invoke_completion(op->user_comp, UCS_OK);
+    }
+    uct_rc_iface_put_send_op(op);
 }
 
 void uct_rc_ep_flush_op_completion_handler(uct_rc_iface_send_op_t *op,
                                            const void *resp)
 {
-    uct_rc_ep_flush_op_completion_common(op, resp);
+    uct_invoke_completion(op->user_comp, UCS_OK);
+    ucs_mpool_put(op);
 }
 
+/* Outstanding purge can tell ep_check from flush by handler.
+ * The operation may not have a user completion (comp == NULL). */
 void uct_rc_ep_check_completion_handler(uct_rc_iface_send_op_t *op,
                                         const void *resp)
 {
-    uct_rc_ep_flush_op_completion_common(op, resp);
+    if (op->user_comp != NULL) {
+        uct_invoke_completion(op->user_comp, UCS_OK);
+    }
+    ucs_mpool_put(op);
 }
 
 ucs_status_t uct_rc_ep_pending_add(uct_ep_h tl_ep, uct_pending_req_t *n,
@@ -498,6 +497,7 @@ void uct_rc_txqp_purge_outstanding(uct_rc_iface_t *iface, uct_rc_txqp_t *txqp,
                 /* This must be uct_rc_ep_get_bcopy_handler,
                  * uct_rc_ep_get_bcopy_handler_no_completion,
                  * uct_rc_ep_get_zcopy_completion_handler,
+                 * uct_rc_ep_put_sgl_zcopy_completion_handler,
                  * uct_rc_ep_flush_op_completion_handler,
                  * uct_rc_ep_check_completion_handler or
                  * one of the atomic handlers,
@@ -531,7 +531,6 @@ void uct_rc_txqp_purge_outstanding(uct_rc_iface_t *iface, uct_rc_txqp_t *txqp,
                    (op->handler == iface->config.atomic64_handler) ||
                    (op->handler == uct_rc_ep_get_bcopy_handler) ||
                    (op->handler == uct_rc_ep_get_bcopy_handler_no_completion) ||
-                   (op->handler == uct_rc_ep_flush_remote_handler) ||
                    (op->handler == uct_rc_ep_am_zcopy_handler)) {
             desc = ucs_derived_of(op, uct_rc_iface_send_desc_t);
             ucs_mpool_put(desc);
