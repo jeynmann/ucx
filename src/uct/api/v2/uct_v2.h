@@ -1880,20 +1880,18 @@ typedef struct uct_ep_op_info {
                 } zcopy;
 
                 /*
-                 * SGL RMA payload: extracted scatter-gather elements, each
-                 * pointing to the user's original registered buffer. The
-                 * arrays hold @a count elements and are valid only inside
-                 * the callback.
+                 * SGL RMA payload. The arrays hold @a count elements and are
+                 * valid only inside the callback.
                  */
                 struct {
                     /* Array of local buffer pointers. */
-                    void * const     *buffers;
+                    void *const      *buffers;
                     /* Array of transfer lengths in bytes. */
                     const size_t     *lengths;
                     /* Array of remote addresses. */
                     const uint64_t   *remote_addrs;
                     /* Array of remote keys. */
-                    uct_rkey_t const *rkeys;
+                    const uct_rkey_t *rkeys;
                     /* Number of elements in the arrays. */
                     size_t           count;
                 } sgl;
