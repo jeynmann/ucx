@@ -310,7 +310,7 @@ void uct_rc_ep_send_op_completion_handler(uct_rc_iface_send_op_t *op,
     uct_rc_ep_send_op_completion_common(op, resp);
 }
 
-/* Outstanding purge can tell PUT SGL ZCOPY from PUT ZCOPY by handler. */
+/* Outstanding purge can tell put sgl zcopy from put zcopy by handler. */
 void uct_rc_ep_put_sgl_zcopy_completion_handler(uct_rc_iface_send_op_t *op,
                                                 const void *resp)
 {
