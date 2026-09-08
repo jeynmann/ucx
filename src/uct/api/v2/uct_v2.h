@@ -35,22 +35,23 @@ BEGIN_C_DECLS
  * This enumeration defines all available UCT operations.
  */
 typedef enum uct_ep_operation {
-    UCT_EP_OP_AM_SHORT,     /**< Short active message */
-    UCT_EP_OP_AM_BCOPY,     /**< Buffered active message */
-    UCT_EP_OP_AM_ZCOPY,     /**< Zero-copy active message */
-    UCT_EP_OP_PUT_SHORT,    /**< Short put */
-    UCT_EP_OP_PUT_BCOPY,    /**< Buffered put */
-    UCT_EP_OP_PUT_ZCOPY,    /**< Zero-copy put */
-    UCT_EP_OP_GET_SHORT,    /**< Short get */
-    UCT_EP_OP_GET_BCOPY,    /**< Buffered get */
-    UCT_EP_OP_GET_ZCOPY,    /**< Zero-copy get */
-    UCT_EP_OP_EAGER_SHORT,  /**< Tag matching short eager */
-    UCT_EP_OP_EAGER_BCOPY,  /**< Tag matching bcopy eager */
-    UCT_EP_OP_EAGER_ZCOPY,  /**< Tag matching zcopy eager */
-    UCT_EP_OP_RNDV_ZCOPY,   /**< Tag matching rendezvous */
-    UCT_EP_OP_ATOMIC_POST,  /**< Atomic post */
-    UCT_EP_OP_ATOMIC_FETCH, /**< Atomic fetch */
-    UCT_EP_OP_FLUSH,        /**< Flush */
+    UCT_EP_OP_AM_SHORT,      /**< Short active message */
+    UCT_EP_OP_AM_BCOPY,      /**< Buffered active message */
+    UCT_EP_OP_AM_ZCOPY,      /**< Zero-copy active message */
+    UCT_EP_OP_PUT_SHORT,     /**< Short put */
+    UCT_EP_OP_PUT_BCOPY,     /**< Buffered put */
+    UCT_EP_OP_PUT_ZCOPY,     /**< Zero-copy put */
+    UCT_EP_OP_GET_SHORT,     /**< Short get */
+    UCT_EP_OP_GET_BCOPY,     /**< Buffered get */
+    UCT_EP_OP_GET_ZCOPY,     /**< Zero-copy get */
+    UCT_EP_OP_EAGER_SHORT,   /**< Tag matching short eager */
+    UCT_EP_OP_EAGER_BCOPY,   /**< Tag matching bcopy eager */
+    UCT_EP_OP_EAGER_ZCOPY,   /**< Tag matching zcopy eager */
+    UCT_EP_OP_RNDV_ZCOPY,    /**< Tag matching rendezvous */
+    UCT_EP_OP_ATOMIC_POST,   /**< Atomic post */
+    UCT_EP_OP_ATOMIC_FETCH,  /**< Atomic fetch */
+    UCT_EP_OP_FLUSH,         /**< Flush */
+    UCT_EP_OP_PUT_SGL_ZCOPY, /**< Zero-copy scatter-gather list put */
     UCT_EP_OP_LAST
 } uct_ep_operation_t;
 
@@ -1701,6 +1702,9 @@ typedef enum {
 
     /** Enables @ref uct_ep_op_info_t::rma::payload::unpack. */
     UCT_EP_OP_INFO_RMA_FIELD_PAYLOAD_UNPACK = UCS_BIT(4),
+
+    /** Enables @ref uct_ep_op_info_t::rma::payload::sgl. */
+    UCT_EP_OP_INFO_RMA_FIELD_PAYLOAD_SGL    = UCS_BIT(5),
 } uct_ep_op_info_rma_field_t;
 
 
@@ -1778,6 +1782,8 @@ typedef enum {
  * - PUT_ZCOPY and GET_ZCOPY: @ref UCT_EP_OP_INFO_FIELD_RMA with @a rma.field_mask =
  *   @ref UCT_EP_OP_INFO_RMA_FIELD_REMOTE_ADDR |
  *   @ref UCT_EP_OP_INFO_RMA_FIELD_RKEY | @ref UCT_EP_OP_INFO_RMA_FIELD_PAYLOAD_ZCOPY.
+ * - PUT_SGL_ZCOPY: @ref UCT_EP_OP_INFO_FIELD_RMA with @a rma.field_mask =
+ *   @ref UCT_EP_OP_INFO_RMA_FIELD_PAYLOAD_SGL.
  * - GET_SHORT: @ref UCT_EP_OP_INFO_FIELD_RMA with @a rma.field_mask =
  *   @ref UCT_EP_OP_INFO_RMA_FIELD_REMOTE_ADDR |
  *   @ref UCT_EP_OP_INFO_RMA_FIELD_RKEY | @ref UCT_EP_OP_INFO_RMA_FIELD_PAYLOAD_DATA.
@@ -1872,6 +1878,25 @@ typedef struct uct_ep_op_info {
                     const uct_iov_t *iov;
                     size_t          iovcnt;
                 } zcopy;
+
+                /*
+                 * SGL RMA payload: extracted scatter-gather elements, each
+                 * pointing to the user's original registered buffer. The
+                 * arrays hold @a count elements and are valid only inside
+                 * the callback.
+                 */
+                struct {
+                    /* Array of local buffer pointers. */
+                    void * const     *buffers;
+                    /* Array of transfer lengths in bytes. */
+                    const size_t     *lengths;
+                    /* Array of remote addresses. */
+                    const uint64_t   *remote_addrs;
+                    /* Array of remote keys. */
+                    uct_rkey_t const *rkeys;
+                    /* Number of elements in the arrays. */
+                    size_t           count;
+                } sgl;
 
                 /* GET bcopy destination callback. */
                 struct {
