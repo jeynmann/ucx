@@ -296,8 +296,9 @@ void uct_rc_ep_get_zcopy_completion_handler(uct_rc_iface_send_op_t *op,
     uct_rc_ep_send_op_completion_handler(op, resp);
 }
 
-static void UCT_F_ALWAYS_INLINE uct_rc_ep_send_op_completion_common(
-        uct_rc_iface_send_op_t *op, const void *resp)
+static UCS_F_ALWAYS_INLINE void
+uct_rc_ep_send_op_completion_common(uct_rc_iface_send_op_t *op,
+                                    const void *resp)
 {
     uct_rc_ep_send_op_completion_handler_common(op, resp);
 }
@@ -314,8 +315,9 @@ void uct_rc_ep_put_sgl_zcopy_completion_handler(uct_rc_iface_send_op_t *op,
     uct_rc_ep_send_op_completion_common(op, resp);
 }
 
-static void UCT_F_ALWAYS_INLINE uct_rc_ep_flush_op_completion_common(
-        uct_rc_iface_send_op_t *op, const void *resp)
+static UCS_F_ALWAYS_INLINE void
+uct_rc_ep_flush_op_completion_common(uct_rc_iface_send_op_t *op,
+                                     const void *resp)
 {
     uct_invoke_completion(op->user_comp, UCS_OK);
     ucs_mpool_put(op);
@@ -531,7 +533,6 @@ void uct_rc_txqp_purge_outstanding(uct_rc_iface_t *iface, uct_rc_txqp_t *txqp,
                    (op->handler == iface->config.atomic64_handler) ||
                    (op->handler == uct_rc_ep_get_bcopy_handler) ||
                    (op->handler == uct_rc_ep_get_bcopy_handler_no_completion) ||
-                   (op->handler == uct_rc_ep_flush_remote_handler) ||
                    (op->handler == uct_rc_ep_am_zcopy_handler)) {
             desc = ucs_derived_of(op, uct_rc_iface_send_desc_t);
             ucs_mpool_put(desc);
