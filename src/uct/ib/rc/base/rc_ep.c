@@ -300,7 +300,8 @@ static UCS_F_ALWAYS_INLINE void
 uct_rc_ep_send_op_completion_common(uct_rc_iface_send_op_t *op,
                                     const void *resp)
 {
-    uct_rc_ep_send_op_completion_handler_common(op, resp);
+    uct_invoke_completion(op->user_comp, UCS_OK);
+    uct_rc_iface_put_send_op(op);
 }
 
 void uct_rc_ep_send_op_completion_handler(uct_rc_iface_send_op_t *op,
@@ -309,6 +310,7 @@ void uct_rc_ep_send_op_completion_handler(uct_rc_iface_send_op_t *op,
     uct_rc_ep_send_op_completion_common(op, resp);
 }
 
+/* Outstanding purge can tell PUT SGL ZCOPY from PUT ZCOPY by handler. */
 void uct_rc_ep_put_sgl_zcopy_completion_handler(uct_rc_iface_send_op_t *op,
                                                 const void *resp)
 {
@@ -329,6 +331,7 @@ void uct_rc_ep_flush_op_completion_handler(uct_rc_iface_send_op_t *op,
     uct_rc_ep_flush_op_completion_common(op, resp);
 }
 
+/* Outstanding purge can tell ep_check from flush by handler. */
 void uct_rc_ep_check_completion_handler(uct_rc_iface_send_op_t *op,
                                         const void *resp)
 {
