@@ -726,7 +726,7 @@ uct_rc_mlx5_base_ep_post_check(uct_ep_h tl_ep, uct_completion_t *comp)
     comp = uct_rc_mlx5_iface_get_put_comp(iface, comp);
     uct_rc_ep_init_send_op(op, 0, comp, uct_rc_ep_check_completion_handler);
     uct_rc_iface_send_op_set_name(op, "rc_mlx5_ep_check");
-    op->iface = iface;
+    op->iface = &iface->super;
     uct_rc_txqp_add_send_op_sn(&ep->super.txqp, op, ep->tx.wq.sig_pi);
     UCT_TL_EP_STAT_FLUSH_WAIT(&ep->super.super);
     return UCS_INPROGRESS;
