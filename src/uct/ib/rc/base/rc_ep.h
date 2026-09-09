@@ -504,7 +504,7 @@ uct_rc_txqp_completion_inl_resp(uct_rc_txqp_t *txqp, const void *resp, uint16_t 
     ucs_queue_for_each_extract(op, &txqp->outstanding, queue,
                                UCS_CIRCULAR_COMPARE16(op->sn, <=, sn)) {
         /* Zcopy operations without user completion may not have a signaled
-        * WQE, so they can be completed by a later inline-response CQE */
+         * WQE, so they can be completed by a later inline-response CQE */
         ucs_assert(!(op->flags & UCT_RC_IFACE_SEND_OP_FLAG_ZCOPY) ||
                    (op->handler == uct_rc_ep_put_zcopy_completion_handler));
         uct_rc_txqp_completion_op(op, resp);

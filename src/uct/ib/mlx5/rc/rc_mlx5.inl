@@ -2033,17 +2033,12 @@ static UCS_F_ALWAYS_INLINE ucs_status_t uct_rc_mlx5_base_ep_zcopy_post(
                                    0, fm_ce_se, 0,
                                    UCT_IB_MAX_ZCOPY_LOG_SGE(&iface->super.super));
 
-    if (add_comp_always) {
+    if (add_comp_always || (comp != NULL)) {
         uct_rc_txqp_add_send_comp_always(&iface->super, &ep->super.txqp,
                                          handler, comp, sn,
                                          op_flags |
                                          UCT_RC_IFACE_SEND_OP_FLAG_ZCOPY,
                                          iov, iovcnt, iov_total_length);
-    } else {
-        uct_rc_txqp_add_send_comp(&iface->super, &ep->super.txqp, handler, comp,
-                                  sn,
-                                  op_flags | UCT_RC_IFACE_SEND_OP_FLAG_ZCOPY,
-                                  iov, iovcnt, iov_total_length);
     }
 
     return UCS_INPROGRESS;

@@ -732,6 +732,7 @@ uct_rc_mlx5_base_ep_post_check(uct_ep_h tl_ep, uct_completion_t *comp)
     if (comp != NULL) {
         UCT_TL_EP_STAT_FLUSH_WAIT(&ep->super.super);
     }
+
     return UCS_INPROGRESS;
 }
 

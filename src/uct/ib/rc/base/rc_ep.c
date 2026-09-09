@@ -296,6 +296,7 @@ void uct_rc_ep_put_zcopy_completion_handler(uct_rc_iface_send_op_t *op,
     if (op->user_comp != NULL) {
         uct_invoke_completion(op->user_comp, UCS_OK);
     }
+
     uct_rc_iface_put_send_op(op);
 }
 
@@ -318,10 +319,7 @@ void uct_rc_ep_send_op_completion_handler(uct_rc_iface_send_op_t *op,
 void uct_rc_ep_put_sgl_zcopy_completion_handler(uct_rc_iface_send_op_t *op,
                                                 const void *resp)
 {
-    if (op->user_comp != NULL) {
-        uct_invoke_completion(op->user_comp, UCS_OK);
-    }
-    uct_rc_iface_put_send_op(op);
+    uct_rc_ep_put_zcopy_completion_handler(op, resp);
 }
 
 void uct_rc_ep_flush_op_completion_handler(uct_rc_iface_send_op_t *op,
@@ -339,6 +337,7 @@ void uct_rc_ep_check_completion_handler(uct_rc_iface_send_op_t *op,
     if (op->user_comp != NULL) {
         uct_invoke_completion(op->user_comp, UCS_OK);
     }
+
     ucs_mpool_put(op);
 }
 
