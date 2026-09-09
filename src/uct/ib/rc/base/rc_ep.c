@@ -304,6 +304,14 @@ void uct_rc_ep_send_op_completion_handler(uct_rc_iface_send_op_t *op,
 }
 
 /* Outstanding purge can tell put sgl zcopy from put zcopy by handler.
+ * This handler is used on the first WQE of a multi-entry SGL request. */
+void uct_rc_ep_put_sgl_zcopy_first_handler(uct_rc_iface_send_op_t *op,
+                                           const void *resp)
+{
+    uct_rc_iface_put_send_op(op);
+}
+
+/* Outstanding purge can tell put sgl zcopy from put zcopy by handler.
  * The operation may not have a user completion (comp == NULL). */
 void uct_rc_ep_put_sgl_zcopy_completion_handler(uct_rc_iface_send_op_t *op,
                                                 const void *resp)
@@ -521,7 +529,8 @@ void uct_rc_txqp_purge_outstanding(uct_rc_iface_t *iface, uct_rc_txqp_t *txqp,
 
         if ((op->handler == uct_rc_ep_send_op_completion_handler) ||
             (op->handler == uct_rc_ep_get_zcopy_completion_handler) ||
-            (op->handler == uct_rc_ep_put_sgl_zcopy_completion_handler)) {
+            (op->handler == uct_rc_ep_put_sgl_zcopy_completion_handler) ||
+            (op->handler == uct_rc_ep_put_sgl_zcopy_first_handler)) {
             uct_rc_iface_put_send_op(op);
         } else if ((op->handler == uct_rc_ep_flush_op_completion_handler) ||
                    (op->handler == uct_rc_ep_check_completion_handler)) {

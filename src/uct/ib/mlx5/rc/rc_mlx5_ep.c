@@ -244,12 +244,12 @@ uct_rc_mlx5_base_ep_put_sgl_zcopy(uct_ep_h tl_ep, void * const *buffers,
     size_t total                   = 0;
     struct mlx5_wqe_ctrl_seg *ctrl = NULL;
     uint32_t num_packets           = 0;
-    uct_rc_iface_send_op_t *op;
+    uct_rc_iface_send_op_t *first_op, *op;
     struct mlx5_wqe_raddr_seg *raddr;
     struct mlx5_wqe_data_seg *dptr;
     size_t wqe_size, i;
     uint8_t fm_ce_se, fence_flag;
-    uint16_t pi, res_count;
+    uint16_t first_pi, pi, res_count;
     uint64_t addr;
     uct_rkey_t rkey;
     void *curr;
@@ -285,6 +285,7 @@ uct_rc_mlx5_base_ep_put_sgl_zcopy(uct_ep_h tl_ep, void * const *buffers,
 
     wqe_size = sizeof(*ctrl) + sizeof(*raddr) + sizeof(*dptr);
     pi       = txwq->sw_pi;
+    first_pi = pi;
 
     ucs_assert(!(txwq->flags & UCT_IB_MLX5_TXWQ_FLAG_FAILED));
     ucs_assert(ucs_div_round_up(wqe_size, MLX5_SEND_WQE_BB) == 1);
@@ -324,7 +325,7 @@ uct_rc_mlx5_base_ep_put_sgl_zcopy(uct_ep_h tl_ep, void * const *buffers,
         num_packets += uct_rc_mlx5_num_packets(txwq, lengths[i]);
     }
 
-    res_count         = pi - 1 - txwq->prev_sw_pi;
+    res_count         = pi - first_pi;
     txwq->prev_sw_pi += res_count;
     txwq->sw_pi       = pi;
     txwq->curr        = curr;
@@ -334,14 +335,19 @@ uct_rc_mlx5_base_ep_put_sgl_zcopy(uct_ep_h tl_ep, void * const *buffers,
     uct_ib_mlx5_txwq_ring_doorbell(txwq, ctrl, txwq->sw_pi, 1);
     uct_rc_mlx5_txwq_add_psn(txwq, IBV_QPT_RC, num_packets);
 
-    /* Always create a send op so outstanding purge can identify the SGL WQEs
-     * and its entry count by the completion handler. */
+    /* Outstanding purge can identify the SGL request and derive its entry count
+     * by the handlers. */
+    if (count > 1) {
+        first_op          = uct_rc_iface_get_send_op(&iface->super);
+        first_op->handler = uct_rc_ep_put_sgl_zcopy_first_handler;
+        uct_rc_txqp_add_send_op_sn(&ep->super.txqp, first_op, first_pi);
+    }
+
     op            = uct_rc_iface_get_send_op(&iface->super);
     op->handler   = uct_rc_ep_put_sgl_zcopy_completion_handler;
     op->user_comp = comp;
     op->flags    |= UCT_RC_IFACE_SEND_OP_FLAG_ZCOPY;
     op->length    = total;
-    op->count     = count;
     uct_rc_txqp_add_send_op_sn(&ep->super.txqp, op, txwq->sig_pi);
 
     UCT_TL_EP_STAT_OP(&ep->super.super, PUT, ZCOPY, total);
