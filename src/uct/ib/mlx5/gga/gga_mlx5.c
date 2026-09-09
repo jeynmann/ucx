@@ -574,9 +574,8 @@ uct_gga_mlx5_ep_put_zcopy(uct_ep_h tl_ep, const uct_iov_t *iov, size_t iovcnt,
     status = uct_rc_mlx5_base_ep_zcopy_post(
             ep, MLX5_OPCODE_MMO | UCT_RC_MLX5_OPCODE_FLAG_MMO_PUT, iov, iovcnt,
             0ul, 0, NULL, 0, remote_addr, rkey_copy, 0ul, 0, 0,
-            &gga_ep->dma_opaque.opaque_mr,
-            fm_ce_se | MLX5_WQE_CTRL_CQ_UPDATE,
-            uct_rc_ep_send_op_completion_handler, 0, comp);
+            &gga_ep->dma_opaque.opaque_mr, fm_ce_se | MLX5_WQE_CTRL_CQ_UPDATE,
+            uct_rc_ep_send_op_completion_handler, 0, comp, 0);
     UCT_TL_EP_STAT_OP_IF_SUCCESS(status, &ep->super.super, PUT, ZCOPY,
                                  uct_iov_total_length(iov, iovcnt));
     uct_rc_ep_enable_flush_remote(&ep->super);
@@ -615,10 +614,9 @@ uct_gga_mlx5_ep_get_zcopy(uct_ep_h tl_ep, const uct_iov_t *iov, size_t iovcnt,
     status = uct_rc_mlx5_base_ep_zcopy_post(
             ep, MLX5_OPCODE_MMO | UCT_RC_MLX5_OPCODE_FLAG_MMO_GET, iov, iovcnt,
             total_length, 0, NULL, 0, remote_addr, rkey_copy, 0ul, 0, 0,
-            &gga_ep->dma_opaque.opaque_mr,
-            fm_ce_se | MLX5_WQE_CTRL_CQ_UPDATE,
+            &gga_ep->dma_opaque.opaque_mr, fm_ce_se | MLX5_WQE_CTRL_CQ_UPDATE,
             uct_rc_ep_get_zcopy_completion_handler,
-            UCT_RC_IFACE_SEND_OP_FLAG_IOV, comp);
+            UCT_RC_IFACE_SEND_OP_FLAG_IOV, comp, 0);
 
     if (!UCS_STATUS_IS_ERR(status)) {
         UCT_TL_EP_STAT_OP(&ep->super.super, GET, ZCOPY, total_length);

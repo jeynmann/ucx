@@ -2003,7 +2003,8 @@ uct_rc_mlx5_iface_poll_tx(uct_rc_mlx5_iface_common_t *iface, int poll_flags)
 
 /*
  * Helper function for zero-copy post.
- * Adds user completion to the callback queue.
+ * Adds user completion to the callback queue. If add_comp_always is set, a send
+ * op is created even when comp is NULL.
  */
 static UCS_F_ALWAYS_INLINE ucs_status_t uct_rc_mlx5_base_ep_zcopy_post(
         uct_rc_mlx5_base_ep_t *ep, unsigned opcode, const uct_iov_t *iov,
@@ -2013,7 +2014,7 @@ static UCS_F_ALWAYS_INLINE ucs_status_t uct_rc_mlx5_base_ep_zcopy_post(
         /* TAG  */ uct_tag_t tag, uint32_t app_ctx, uint32_t ib_imm_be,
         /* MMO */ const uct_ib_mlx5_dma_opaque_mr_t *opaque_mr,
         uint8_t wqe_flags, uct_rc_send_handler_t handler, uint16_t op_flags,
-        uct_completion_t *comp)
+        uct_completion_t *comp, int add_comp_always)
 {
     uct_rc_mlx5_iface_common_t *iface = ucs_derived_of(ep->super.super.super.iface,
                                                        uct_rc_mlx5_iface_common_t);
@@ -2032,9 +2033,18 @@ static UCS_F_ALWAYS_INLINE ucs_status_t uct_rc_mlx5_base_ep_zcopy_post(
                                    0, fm_ce_se, 0,
                                    UCT_IB_MAX_ZCOPY_LOG_SGE(&iface->super.super));
 
-    uct_rc_txqp_add_send_comp(&iface->super, &ep->super.txqp, handler, comp, sn,
-                              op_flags | UCT_RC_IFACE_SEND_OP_FLAG_ZCOPY,
-                              iov, iovcnt, iov_total_length);
+    if (add_comp_always) {
+        uct_rc_txqp_add_send_comp_always(&iface->super, &ep->super.txqp,
+                                         handler, comp, sn,
+                                         op_flags |
+                                         UCT_RC_IFACE_SEND_OP_FLAG_ZCOPY,
+                                         iov, iovcnt, iov_total_length);
+    } else {
+        uct_rc_txqp_add_send_comp(&iface->super, &ep->super.txqp, handler, comp,
+                                  sn,
+                                  op_flags | UCT_RC_IFACE_SEND_OP_FLAG_ZCOPY,
+                                  iov, iovcnt, iov_total_length);
+    }
 
     return UCS_INPROGRESS;
 }

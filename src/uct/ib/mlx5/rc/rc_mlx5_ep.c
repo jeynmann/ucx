@@ -224,7 +224,7 @@ ucs_status_t uct_rc_mlx5_base_ep_put_zcopy(uct_ep_h tl_ep, const uct_iov_t *iov,
             ep, MLX5_OPCODE_RDMA_WRITE, iov, iovcnt, 0ul, 0, NULL, 0,
             remote_addr, rkey, 0ul, 0, 0, NULL,
             fm_ce_se | MLX5_WQE_CTRL_CQ_UPDATE,
-            uct_rc_ep_send_op_completion_handler, 0, comp);
+            uct_rc_ep_put_zcopy_completion_handler, 0, comp, 1);
     UCT_TL_EP_STAT_OP_IF_SUCCESS(status, &ep->super.super, PUT, ZCOPY,
                                  uct_iov_total_length(iov, iovcnt));
     uct_rc_ep_enable_flush_remote(&ep->super);
@@ -244,7 +244,6 @@ uct_rc_mlx5_base_ep_put_sgl_zcopy(uct_ep_h tl_ep, void * const *buffers,
     size_t total                   = 0;
     struct mlx5_wqe_ctrl_seg *ctrl = NULL;
     uint32_t num_packets           = 0;
-    uct_rc_iface_send_op_t *op;
     struct mlx5_wqe_raddr_seg *raddr;
     struct mlx5_wqe_data_seg *dptr;
     size_t wqe_size, i;
@@ -335,12 +334,11 @@ uct_rc_mlx5_base_ep_put_sgl_zcopy(uct_ep_h tl_ep, void * const *buffers,
     uct_rc_mlx5_txwq_add_psn(txwq, IBV_QPT_RC, num_packets);
 
     /* Outstanding purge can identify the SGL request by distinct handler. */
-    op            = uct_rc_iface_get_send_op(&iface->super);
-    op->handler   = uct_rc_ep_put_sgl_zcopy_completion_handler;
-    op->user_comp = comp;
-    op->flags    |= UCT_RC_IFACE_SEND_OP_FLAG_ZCOPY;
-    op->length    = total;
-    uct_rc_txqp_add_send_op_sn(&ep->super.txqp, op, txwq->sig_pi);
+    uct_rc_txqp_add_send_comp_always(&iface->super, &ep->super.txqp,
+                                     uct_rc_ep_put_sgl_zcopy_completion_handler,
+                                     comp, txwq->sig_pi,
+                                     UCT_RC_IFACE_SEND_OP_FLAG_ZCOPY, NULL, 0,
+                                     total);
 
     UCT_TL_EP_STAT_OP(&ep->super.super, PUT, ZCOPY, total);
     uct_rc_ep_enable_flush_remote(&ep->super);
@@ -397,7 +395,7 @@ ucs_status_t uct_rc_mlx5_base_ep_get_zcopy(uct_ep_h tl_ep, const uct_iov_t *iov,
             remote_addr, rkey, 0ul, 0, 0, NULL,
             fm_ce_se | MLX5_WQE_CTRL_CQ_UPDATE,
             uct_rc_ep_get_zcopy_completion_handler,
-            UCT_RC_IFACE_SEND_OP_FLAG_IOV, comp);
+            UCT_RC_IFACE_SEND_OP_FLAG_IOV, comp, 0);
     if (!UCS_STATUS_IS_ERR(status)) {
         UCT_TL_EP_STAT_OP(&ep->super.super, GET, ZCOPY, total_length);
         UCT_RC_RDMA_READ_POSTED(&iface->super, total_length);
@@ -522,7 +520,7 @@ uct_rc_mlx5_base_ep_am_zcopy(uct_ep_h tl_ep, uint8_t id, const void *header,
     status = uct_rc_mlx5_base_ep_zcopy_post(
             ep, MLX5_OPCODE_SEND, iov, iovcnt, 0ul, id, header, header_length,
             0, 0, 0ul, 0, 0, NULL, MLX5_WQE_CTRL_SOLICITED,
-            uct_rc_ep_send_op_completion_handler, 0, comp);
+            uct_rc_ep_send_op_completion_handler, 0, comp, 0);
     if (ucs_likely(status >= 0)) {
         UCT_TL_EP_STAT_OP(&ep->super.super, AM, ZCOPY,
                           header_length + uct_iov_total_length(iov, iovcnt));
@@ -1185,7 +1183,7 @@ ucs_status_t uct_rc_mlx5_ep_tag_eager_zcopy(uct_ep_h tl_ep, uct_tag_t tag,
     return uct_rc_mlx5_base_ep_zcopy_post(
             &ep->super, opcode | UCT_RC_MLX5_OPCODE_FLAG_TM, iov, iovcnt, 0ul,
             0, "", 0, 0, 0, tag, app_ctx, ib_imm, NULL, MLX5_WQE_CTRL_SOLICITED,
-            uct_rc_ep_send_op_completion_handler, 0, comp);
+            uct_rc_ep_send_op_completion_handler, 0, comp, 0);
 }
 
 ucs_status_ptr_t uct_rc_mlx5_ep_tag_rndv_zcopy(uct_ep_h tl_ep, uct_tag_t tag,

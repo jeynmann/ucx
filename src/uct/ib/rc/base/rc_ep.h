@@ -260,6 +260,9 @@ void uct_rc_ep_get_zcopy_completion_handler(uct_rc_iface_send_op_t *op,
 void uct_rc_ep_send_op_completion_handler(uct_rc_iface_send_op_t *op,
                                           const void *resp);
 
+void uct_rc_ep_put_zcopy_completion_handler(uct_rc_iface_send_op_t *op,
+                                            const void *resp);
+
 void uct_rc_ep_flush_op_completion_handler(uct_rc_iface_send_op_t *op,
                                            const void *resp);
 
@@ -400,19 +403,17 @@ uct_rc_txqp_add_send_op_sn(uct_rc_txqp_t *txqp, uct_rc_iface_send_op_t *op, uint
     uct_rc_txqp_add_send_op(txqp, op);
 }
 
+/* Always create a send op, even if comp is NULL, so that outstanding purge can
+ * identify the operation by its completion handler. */
 static UCS_F_ALWAYS_INLINE void
-uct_rc_txqp_add_send_comp(uct_rc_iface_t *iface, uct_rc_txqp_t *txqp,
-                          uct_rc_send_handler_t handler, uct_completion_t *comp,
-                          uint16_t sn, uint16_t flags, const uct_iov_t *iov,
-                          size_t iovcnt, size_t length)
+uct_rc_txqp_add_send_comp_always(uct_rc_iface_t *iface, uct_rc_txqp_t *txqp,
+                                 uct_rc_send_handler_t handler,
+                                 uct_completion_t *comp, uint16_t sn,
+                                 uint16_t flags, const uct_iov_t *iov,
+                                 size_t iovcnt, size_t length)
 {
-    uct_rc_iface_send_op_t *op;
+    uct_rc_iface_send_op_t *op = uct_rc_iface_get_send_op(iface);
 
-    if (comp == NULL) {
-        return;
-    }
-
-    op            = uct_rc_iface_get_send_op(iface);
     op->handler   = handler;
     op->user_comp = comp;
     op->flags    |= flags;
@@ -422,6 +423,20 @@ uct_rc_txqp_add_send_comp(uct_rc_iface_t *iface, uct_rc_txqp_t *txqp,
         uct_rc_ep_send_op_set_iov(op, iov, iovcnt);
     }
     uct_rc_txqp_add_send_op_sn(txqp, op, sn);
+}
+
+static UCS_F_ALWAYS_INLINE void
+uct_rc_txqp_add_send_comp(uct_rc_iface_t *iface, uct_rc_txqp_t *txqp,
+                          uct_rc_send_handler_t handler, uct_completion_t *comp,
+                          uint16_t sn, uint16_t flags, const uct_iov_t *iov,
+                          size_t iovcnt, size_t length)
+{
+    if (comp == NULL) {
+        return;
+    }
+
+    uct_rc_txqp_add_send_comp_always(iface, txqp, handler, comp, sn, flags, iov,
+                                     iovcnt, length);
 }
 
 static inline void
@@ -488,7 +503,10 @@ uct_rc_txqp_completion_inl_resp(uct_rc_txqp_t *txqp, const void *resp, uint16_t 
     ucs_trace_poll("txqp %p complete ops up to sn %d", txqp, sn);
     ucs_queue_for_each_extract(op, &txqp->outstanding, queue,
                                UCS_CIRCULAR_COMPARE16(op->sn, <=, sn)) {
-        ucs_assert(!(op->flags & UCT_RC_IFACE_SEND_OP_FLAG_ZCOPY));
+        /* Zcopy operations without user completion may not have a signaled
+        * WQE, so they can be completed by a later inline-response CQE */
+        ucs_assert(!(op->flags & UCT_RC_IFACE_SEND_OP_FLAG_ZCOPY) ||
+                   (op->handler == uct_rc_ep_put_zcopy_completion_handler));
         uct_rc_txqp_completion_op(op, resp);
     }
 }
