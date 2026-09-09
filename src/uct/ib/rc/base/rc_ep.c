@@ -493,8 +493,9 @@ void uct_rc_txqp_purge_outstanding(uct_rc_iface_t *iface, uct_rc_txqp_t *txqp,
     ucs_queue_for_each_extract(op, &txqp->outstanding, queue,
                                UCS_CIRCULAR_COMPARE16(op->sn, <=, sn)) {
         if (op->handler != (uct_rc_send_handler_t)ucs_mpool_put) {
-            /* Allow clean flush cancel and ep_check ops from destroy flow */
-            if (warn &&
+            /* Allow clean flush cancel, ep_check ops and other ops without user
+             * completion from destroy flow. */
+            if (warn && (op->user_comp != NULL) &&
                 (op->handler != uct_rc_ep_flush_op_completion_handler) &&
                 (op->handler != uct_rc_ep_check_completion_handler)) {
                 ucs_warn("destroying txqp %p with uncompleted operation %p"
@@ -531,8 +532,8 @@ void uct_rc_txqp_purge_outstanding(uct_rc_iface_t *iface, uct_rc_txqp_t *txqp,
 
         if ((op->handler == uct_rc_ep_send_op_completion_handler) ||
             (op->handler == uct_rc_ep_put_zcopy_completion_handler) ||
-            (op->handler == uct_rc_ep_get_zcopy_completion_handler) ||
-            (op->handler == uct_rc_ep_put_sgl_zcopy_completion_handler)) {
+            (op->handler == uct_rc_ep_put_sgl_zcopy_completion_handler) ||
+            (op->handler == uct_rc_ep_get_zcopy_completion_handler)) {
             uct_rc_iface_put_send_op(op);
         } else if ((op->handler == uct_rc_ep_flush_op_completion_handler) ||
                    (op->handler == uct_rc_ep_check_completion_handler)) {

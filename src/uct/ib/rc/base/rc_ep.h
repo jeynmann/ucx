@@ -449,27 +449,46 @@ uct_rc_ep_init_send_op(uct_rc_iface_send_op_t *op, unsigned flags,
     op->handler   = handler;
 }
 
+/* Always create a flush op with the given handler, even if comp is NULL. */
+static UCS_F_ALWAYS_INLINE ucs_status_t uct_rc_txqp_add_flush_comp_always(
+        uct_rc_iface_t *iface, uct_rc_txqp_t *txqp, uct_completion_t *comp,
+        uct_rc_send_handler_t handler, uint16_t sn)
+{
+    uct_rc_iface_send_op_t *op;
+
+    op = (uct_rc_iface_send_op_t*)ucs_mpool_get(&iface->tx.send_op_mp);
+    if (ucs_unlikely(op == NULL)) {
+        ucs_error("Failed to allocate flush completion");
+        return UCS_ERR_NO_MEMORY;
+    }
+
+    uct_rc_ep_init_send_op(op, 0, comp, handler);
+    uct_rc_iface_send_op_set_name(op, "rc_txqp_add_flush_comp");
+    op->iface = iface;
+    uct_rc_txqp_add_send_op_sn(txqp, op, sn);
+
+    return UCS_INPROGRESS;
+}
+
 static UCS_F_ALWAYS_INLINE ucs_status_t
 uct_rc_txqp_add_flush_comp(uct_rc_iface_t *iface, uct_base_ep_t *ep,
                            uct_rc_txqp_t *txqp, uct_completion_t *comp,
                            uint16_t sn)
 {
-    uct_rc_iface_send_op_t *op;
+    ucs_status_t status;
 
-    if (comp != NULL) {
-        op = (uct_rc_iface_send_op_t*)ucs_mpool_get(&iface->tx.send_op_mp);
-        if (ucs_unlikely(op == NULL)) {
-            ucs_error("Failed to allocate flush completion");
-            return UCS_ERR_NO_MEMORY;
-        }
-
-        uct_rc_ep_init_send_op(op, 0, comp, uct_rc_ep_flush_op_completion_handler);
-        uct_rc_iface_send_op_set_name(op, "rc_txqp_add_flush_comp");
-        op->iface = iface;
-        uct_rc_txqp_add_send_op_sn(txqp, op, sn);
+    if (comp == NULL) {
+        return UCS_INPROGRESS;
     }
+
+    status = uct_rc_txqp_add_flush_comp_always(
+            iface, txqp, comp, uct_rc_ep_flush_op_completion_handler, sn);
+    if (status != UCS_INPROGRESS) {
+        return status;
+    }
+
     UCT_TL_EP_STAT_FLUSH_WAIT(ep);
-    return UCS_INPROGRESS;
+    return status;
 }
 
 static UCS_F_ALWAYS_INLINE void
@@ -506,7 +525,8 @@ uct_rc_txqp_completion_inl_resp(uct_rc_txqp_t *txqp, const void *resp, uint16_t 
         /* Zcopy operations without user completion may not have a signaled
          * WQE, so they can be completed by a later inline-response CQE */
         ucs_assert(!(op->flags & UCT_RC_IFACE_SEND_OP_FLAG_ZCOPY) ||
-                   (op->handler == uct_rc_ep_put_zcopy_completion_handler));
+                   (op->handler == uct_rc_ep_put_zcopy_completion_handler) ||
+                   (op->handler == uct_rc_ep_put_sgl_zcopy_completion_handler));
         uct_rc_txqp_completion_op(op, resp);
     }
 }

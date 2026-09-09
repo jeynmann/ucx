@@ -708,14 +708,8 @@ ucs_status_t
 uct_rc_mlx5_base_ep_post_check(uct_ep_h tl_ep, uct_completion_t *comp)
 {
     UCT_RC_MLX5_BASE_EP_DECL(tl_ep, iface, ep);
-    uct_rc_iface_send_op_t *op;
     uint64_t dummy = 0; /* Dummy buffer to suppress compiler warning */
-
-    op = (uct_rc_iface_send_op_t*)ucs_mpool_get(&iface->super.tx.send_op_mp);
-    if (op == NULL) {
-        ucs_error("ep %p: failed to allocate ep_check completion", ep);
-        return UCS_ERR_NO_MEMORY;
-    }
+    ucs_status_t status;
 
     uct_rc_mlx5_txqp_inline_post(iface, IBV_QPT_RC, &ep->super.txqp, &ep->tx.wq,
                                  MLX5_OPCODE_RDMA_WRITE, &dummy, 0, 0, 0, 0, 0,
@@ -724,10 +718,12 @@ uct_rc_mlx5_base_ep_post_check(uct_ep_h tl_ep, uct_completion_t *comp)
     /* Always create an op with the check handler (also for comp == NULL) so
      * that the WQE is distinguishable from a zero-length PUT_SHORT during
      * outstanding WQE parsing. */
-    uct_rc_ep_init_send_op(op, 0, comp, uct_rc_ep_check_completion_handler);
-    uct_rc_iface_send_op_set_name(op, "rc_mlx5_ep_check");
-    op->iface = &iface->super;
-    uct_rc_txqp_add_send_op_sn(&ep->super.txqp, op, ep->tx.wq.sig_pi);
+    status = uct_rc_txqp_add_flush_comp_always(
+            &iface->super, &ep->super.txqp, comp,
+            uct_rc_ep_check_completion_handler, ep->tx.wq.sig_pi);
+    if (status != UCS_INPROGRESS) {
+        return status;
+    }
 
     if (comp != NULL) {
         UCT_TL_EP_STAT_FLUSH_WAIT(&ep->super.super);
