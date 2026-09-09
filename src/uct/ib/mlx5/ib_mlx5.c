@@ -881,6 +881,38 @@ uint16_t uct_ib_mlx5_txwq_num_posted_wqes(const uct_ib_mlx5_txwq_t *txwq,
     return count;
 }
 
+uint16_t uct_ib_mlx5_txwq_num_err_cqes(const uct_ib_mlx5_txwq_t *txwq,
+                                       uint16_t outstanding, int prev_err)
+{
+    struct mlx5_wqe_ctrl_seg *ctrl;
+    uint16_t pi, count;
+    size_t wqe_size;
+
+    pi    = txwq->prev_sw_pi - outstanding;
+    count = 0;
+    ucs_assert(pi == txwq->hw_ci);
+
+    /* Skip the most recently completed WQE */
+    ctrl     = uct_ib_mlx5_txwq_get_wqe(txwq, pi);
+    wqe_size = (ctrl->qpn_ds >> 24) * UCT_IB_MLX5_WQE_SEG_SIZE;
+    pi      += (wqe_size + MLX5_SEND_WQE_BB - 1) / MLX5_SEND_WQE_BB;
+
+    while (pi != txwq->sw_pi) {
+        ctrl     = uct_ib_mlx5_txwq_get_wqe(txwq, pi);
+        wqe_size = (ctrl->qpn_ds >> 24) * UCT_IB_MLX5_WQE_SEG_SIZE;
+        pi      += (wqe_size + MLX5_SEND_WQE_BB - 1) / MLX5_SEND_WQE_BB;
+
+        if (((ctrl->fm_ce_se & UCT_IB_MLX5_WQE_CTRL_CE_MASK) !=
+             UCT_IB_MLX5_WQE_CTRL_CE_ON_FIRST_CQE_ERROR) ||
+            !prev_err) {
+            ++count;
+        }
+        prev_err = 1;
+    }
+
+    return count;
+}
+
 void uct_ib_mlx5_qp_mmio_cleanup(uct_ib_mlx5_qp_t *qp,
                                  uct_ib_mlx5_mmio_reg_t *reg)
 {

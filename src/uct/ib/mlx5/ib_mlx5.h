@@ -130,6 +130,13 @@ struct mlx5_grh_av {
 #  define MLX5_WQE_CTRL_SOLICITED  (1<<1)
 #endif
 
+/* CE (completion and event mode, ctrl seg bits 3:2) value:
+ * cqe_on_first_cqe_error - generate CQE only on first WQE completion with
+ * error. Used to mark non-final WQEs of a multi-WQE request (SGL), so that
+ * outstanding WQE parsing can identify the request range. */
+#define UCT_IB_MLX5_WQE_CTRL_CE_MASK               (3 << 2)
+#define UCT_IB_MLX5_WQE_CTRL_CE_ON_FIRST_CQE_ERROR (1 << 2)
+
 #define UCT_IB_MLX5_WQE_CTRL_FLAG_INITIATOR_SMALL_FENCE (1<<5)
 #define UCT_IB_MLX5_WQE_CTRL_FLAG_FENCE                 (2<<5)
 #define UCT_IB_MLX5_WQE_CTRL_FLAG_STRONG_ORDER          (3<<5)
@@ -920,6 +927,12 @@ void *uct_ib_mlx5_txwq_get_wqe(const uct_ib_mlx5_txwq_t *txwq, uint16_t pi);
 /* Count how many WQEs are currently posted */
 uint16_t uct_ib_mlx5_txwq_num_posted_wqes(const uct_ib_mlx5_txwq_t *txwq,
                                           uint16_t outstanding);
+
+/* Count how many error CQEs will be generated for the currently posted WQEs.
+ * A on-first-cqe-error SGL WQE does not generate an error CQE if a previous
+ * WQE completed in error. */
+uint16_t uct_ib_mlx5_txwq_num_err_cqes(const uct_ib_mlx5_txwq_t *txwq,
+                                       uint16_t outstanding, int prev_err);
 
 void uct_ib_mlx5_qp_mmio_cleanup(uct_ib_mlx5_qp_t *qp,
                                  uct_ib_mlx5_mmio_reg_t *reg);

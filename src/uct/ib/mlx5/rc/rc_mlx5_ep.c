@@ -1369,8 +1369,9 @@ UCS_CLASS_CLEANUP_FUNC(uct_rc_mlx5_ep_t)
        overflow. These CQ credits will be released by error CQE handler. */
     unreleased_cq_credits = self->super.tx.wq.prev_sw_pi -
                             self->super.tx.wq.hw_ci;
-    unpolled_cqes = uct_ib_mlx5_txwq_num_posted_wqes(&self->super.tx.wq,
-                                                     unreleased_cq_credits);
+    unpolled_cqes         = uct_ib_mlx5_txwq_num_err_cqes(
+            &self->super.tx.wq, unreleased_cq_credits,
+            (self->super.super.flags & UCT_RC_EP_FLAG_ERR_HANDLER_INVOKED));
     ucs_assert(unreleased_cq_credits >= unpolled_cqes);
     cq_credits = unreleased_cq_credits - unpolled_cqes;
 
