@@ -632,7 +632,8 @@ UCS_TEST_SKIP_COND_P(test_uct_purge_outstanding, put_zcopy,
     UCS_TEST_GET_BUFFER_IOV(iov, iovcnt, sendbuf.ptr(), sendbuf.length(),
                             sendbuf.memh(), num_iov);
 
-    purge_ctx ctx   = {this};
+    purge_ctx ctx{};
+    ctx.self        = this;
     ctx.remote_addr = recvbuf.addr();
     ctx.rkey        = recvbuf.rkey();
     ctx.iov         = iov;
