@@ -263,9 +263,6 @@ void uct_rc_ep_send_op_completion_handler(uct_rc_iface_send_op_t *op,
 void uct_rc_ep_flush_op_completion_handler(uct_rc_iface_send_op_t *op,
                                            const void *resp);
 
-void uct_rc_ep_put_sgl_zcopy_first_handler(uct_rc_iface_send_op_t *op,
-                                           const void *resp);
-
 void uct_rc_ep_put_sgl_zcopy_completion_handler(uct_rc_iface_send_op_t *op,
                                                 const void *resp);
 
