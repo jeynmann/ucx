@@ -242,6 +242,7 @@ uct_rc_mlx5_base_ep_put_sgl_zcopy(uct_ep_h tl_ep, void * const *buffers,
     UCT_RC_MLX5_BASE_EP_DECL(tl_ep, iface, ep);
     uct_ib_mlx5_txwq_t *txwq       = &ep->tx.wq;
     size_t total                   = 0;
+    size_t last_i                  = 0;
     struct mlx5_wqe_ctrl_seg *ctrl = NULL;
     uint32_t num_packets           = 0;
     struct mlx5_wqe_raddr_seg *raddr;
@@ -273,16 +274,21 @@ uct_rc_mlx5_base_ep_put_sgl_zcopy(uct_ep_h tl_ep, void * const *buffers,
     for (i = 0; i < count; i++) {
         UCT_CHECK_LENGTH(lengths[i], 0, UCT_IB_MAX_MESSAGE_SIZE,
                          "put_sgl_zcopy");
+        if (ucs_unlikely(lengths[i] == 0)) {
+            continue;
+        }
+
+        last_i = i;
         total += lengths[i];
     }
     UCT_SKIP_ZERO_LENGTH(total);
 
-    UCT_RC_CHECK_CQE_VALUE_RET(&iface->super, &ep->super,
-                               UCS_ERR_NO_RESOURCE, count - 1);
+    UCT_RC_CHECK_CQE_VALUE_RET(&iface->super, &ep->super, UCS_ERR_NO_RESOURCE,
+                               last_i);
 
     UCT_RC_CHECK_NUM_RDMA_READ_RET(&iface->super, UCS_ERR_NO_RESOURCE);
-    UCT_RC_CHECK_TXQP_VALUE_RET(&iface->super, &ep->super,
-                                UCS_ERR_NO_RESOURCE, count - 1);
+    UCT_RC_CHECK_TXQP_VALUE_RET(&iface->super, &ep->super, UCS_ERR_NO_RESOURCE,
+                                last_i);
 
     wqe_size = sizeof(*ctrl) + sizeof(*raddr) + sizeof(*dptr);
     pi       = txwq->sw_pi;
@@ -295,14 +301,14 @@ uct_rc_mlx5_base_ep_put_sgl_zcopy(uct_ep_h tl_ep, void * const *buffers,
     fence      = uct_rc_ep_fm(&iface->super, &txwq->fi, 1);
     fence_flag = fence ? iface->config.put_fence_flag : 0;
 
-    for (i = 0; i < count; i++) {
+    for (i = 0; i <= last_i; i++) {
         if (ucs_unlikely(lengths[i] == 0)) {
             continue;
         }
 
-        fm_ce_se = ((i == 0) ? fence_flag : 0) |
-                   ((i == count - 1) ? MLX5_WQE_CTRL_CQ_UPDATE : 0);
-        ctrl     = curr;
+        fm_ce_se = fence_flag | ((i == last_i) ? MLX5_WQE_CTRL_CQ_UPDATE : 0);
+        fence_flag = 0;
+        ctrl       = curr;
 
         uct_ib_mlx5_set_ctrl_seg(ctrl, pi, MLX5_OPCODE_RDMA_WRITE, 0,
                                  txwq->super.qp_num, fm_ce_se, 0, wqe_size);
