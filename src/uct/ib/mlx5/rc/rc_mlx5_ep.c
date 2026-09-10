@@ -715,7 +715,7 @@ uct_rc_mlx5_base_ep_post_check(uct_ep_h tl_ep, uct_completion_t *comp)
      * does not leave a signaled WQE without a matching outstanding op. */
     op = (uct_rc_iface_send_op_t*)ucs_mpool_get(&iface->super.tx.send_op_mp);
     if (ucs_unlikely(op == NULL)) {
-        ucs_error("Failed to allocate ep_check completion");
+        ucs_error("ep %p: failed to allocate ep_check completion", ep);
         return UCS_ERR_NO_MEMORY;
     }
 
