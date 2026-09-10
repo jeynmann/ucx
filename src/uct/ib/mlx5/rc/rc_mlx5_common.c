@@ -75,8 +75,7 @@ static void uct_rc_mlx5_callback_data_fill_iov(
         callback_data->iov[i].stride = 0;
         callback_data->iov[i].count  = 1;
 
-        dptr = uct_ib_mlx5_txwq_wrap_any((uct_ib_mlx5_txwq_t*)txwq,
-                                         (void*)(dptr + 1));
+        dptr = uct_ib_mlx5_txwq_wrap_any_const(txwq, (dptr + 1));
     }
 }
 
@@ -102,8 +101,7 @@ static void uct_rc_mlx5_op_info_fill_put_zcopy(
 
     ucs_assert((seg_size % sizeof(*dptr)) == 0);
 
-    dptr   = uct_ib_mlx5_txwq_wrap_any((uct_ib_mlx5_txwq_t*)txwq,
-                                       (void*)(raddr + 1));
+    dptr   = uct_ib_mlx5_txwq_wrap_any_const(txwq, (raddr + 1));
     iovcnt = seg_size / sizeof(*dptr);
     uct_rc_mlx5_callback_data_fill_iov(callback_data, txwq, dptr, iovcnt);
     uct_rc_mlx5_op_info_fill_rma_zcopy_iov(info, callback_data->iov, iovcnt);
@@ -119,8 +117,7 @@ static ucs_status_t uct_rc_mlx5_op_info_fill_put(
 
     ucs_assert(wqe_size >= header_size);
 
-    raddr = uct_ib_mlx5_txwq_wrap_any((uct_ib_mlx5_txwq_t*)txwq,
-                                      (void*)(ctrl + 1));
+    raddr = uct_ib_mlx5_txwq_wrap_any_const(txwq, (ctrl + 1));
 
     if ((op == NULL) || (op->handler == uct_rc_ep_send_op_completion_handler)) {
         uct_rc_mlx5_op_info_fill_put_zcopy(info, txwq, op, raddr,
