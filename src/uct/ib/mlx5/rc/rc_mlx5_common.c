@@ -80,9 +80,10 @@ static void uct_rc_mlx5_callback_data_fill_iov(
 }
 
 static void uct_rc_mlx5_op_info_fill_rma_zcopy(
-        uct_ep_op_info_t *info, uct_ep_operation_t operation, const uct_ib_mlx5_txwq_t *txwq,
-        uct_rc_iface_send_op_t *op, const struct mlx5_wqe_raddr_seg *raddr,
-        size_t seg_size, uct_rc_mlx5_op_callback_data_t *callback_data)
+        uct_ep_op_info_t *info, uct_ep_operation_t operation,
+        const uct_ib_mlx5_txwq_t *txwq, uct_rc_iface_send_op_t *op,
+        const struct mlx5_wqe_raddr_seg *raddr, size_t seg_size,
+        uct_rc_mlx5_op_callback_data_t *callback_data)
 {
     const struct mlx5_wqe_data_seg *dptr;
     size_t iovcnt;
