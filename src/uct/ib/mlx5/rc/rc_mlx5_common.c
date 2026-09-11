@@ -188,8 +188,8 @@ static ucs_status_t uct_rc_mlx5_op_info_fill_am_send(
     ucs_assert(wqe_size >= (sizeof(*ctrl) + inline_seg_size));
 
     if ((op != NULL) && (op->handler != uct_rc_ep_send_op_completion_handler)) {
-        ucs_fatal("unsupported am send op %p handler %p", op,
-                  (void*)op->handler);
+        ucs_fatal("unsupported am send op %p handler %s", op,
+                  ucs_debug_get_symbol_name((void*)op->handler));
     }
 
     if ((op == NULL) && (wqe_size == (sizeof(*ctrl) + inline_seg_size))) {
