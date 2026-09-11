@@ -123,7 +123,7 @@ UCS_TEST_SKIP_COND_P(uct_p2p_rma_test, put_zcopy_nolen_nocomp,
                      !check_caps(UCT_IFACE_FLAG_PUT_ZCOPY))
 {
     if (sender().iface_attr().cap.put.min_zcopy != 0) {
-        UCS_TEST_SKIP("Skipping test for min_zcopy != 0");
+        UCS_TEST_SKIP_R("min_zcopy != 0");
     }
 
     disable_comp();

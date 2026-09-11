@@ -334,11 +334,7 @@ void uct_rc_ep_flush_op_completion_handler(uct_rc_iface_send_op_t *op,
 void uct_rc_ep_check_completion_handler(uct_rc_iface_send_op_t *op,
                                         const void *resp)
 {
-    if (op->user_comp != NULL) {
-        uct_invoke_completion(op->user_comp, UCS_OK);
-    }
-
-    ucs_mpool_put(op);
+    uct_rc_ep_put_zcopy_completion_handler(op, resp);
 }
 
 ucs_status_t uct_rc_ep_pending_add(uct_ep_h tl_ep, uct_pending_req_t *n,
@@ -532,10 +528,10 @@ void uct_rc_txqp_purge_outstanding(uct_rc_iface_t *iface, uct_rc_txqp_t *txqp,
         if ((op->handler == uct_rc_ep_send_op_completion_handler) ||
             (op->handler == uct_rc_ep_put_zcopy_completion_handler) ||
             (op->handler == uct_rc_ep_put_sgl_zcopy_completion_handler) ||
-            (op->handler == uct_rc_ep_get_zcopy_completion_handler)) {
+            (op->handler == uct_rc_ep_get_zcopy_completion_handler) ||
+            (op->handler == uct_rc_ep_check_completion_handler)) {
             uct_rc_iface_put_send_op(op);
-        } else if ((op->handler == uct_rc_ep_flush_op_completion_handler) ||
-                   (op->handler == uct_rc_ep_check_completion_handler)) {
+        } else if (op->handler == uct_rc_ep_flush_op_completion_handler) {
             ucs_mpool_put(op);
         } else if ((op->handler == iface->config.atomic32_ext_handler) ||
                    (op->handler == iface->config.atomic64_ext_handler) ||
