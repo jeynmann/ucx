@@ -864,6 +864,10 @@ UCS_TEST_SKIP_COND_P(test_uct_ep_check_async, no_comp_when_connected,
     flush();
 
     EXPECT_EQ(UCS_OK, uct_ep_check(m_e1->ep(0), 0, NULL));
+
+    /* Destroy the EP while the ep_check marker send op is still outstanding:
+     * it must be purged silently, without "uncompleted operation" warnings */
+    m_e1->destroy_ep(0);
 }
 
 
