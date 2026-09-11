@@ -197,7 +197,7 @@ static ucs_status_t uct_rc_mlx5_op_info_fill_am_send(
     }
 
     dptr   = uct_ib_mlx5_txwq_wrap_any_const(
-            txwq, UCS_PTR_BYTE_OFFSET((void*)inl, inline_seg_size));
+            txwq, UCS_PTR_BYTE_OFFSET(inl, inline_seg_size));
     iovcnt = (wqe_size - sizeof(*ctrl) - inline_seg_size) / sizeof(*dptr);
     uct_rc_mlx5_op_info_fill_am_zcopy(info, txwq, op, inl, inline_length, dptr,
                                       iovcnt, callback_data);

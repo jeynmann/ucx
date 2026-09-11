@@ -866,8 +866,12 @@ uint8_t uct_ib_mlx5_wqe_opcode(const struct mlx5_wqe_ctrl_seg *ctrl)
 void uct_ib_mlx5_txwq_copy_segs(const uct_ib_mlx5_txwq_t *txwq, void *dst,
                                 const void *src, size_t length)
 {
-    size_t copy_len = ucs_min(length, UCS_PTR_BYTE_DIFF(src, txwq->qend));
+    size_t copy_len;
 
+    ucs_assertv((src >= txwq->qstart) && (src < txwq->qend),
+                "src=%p qstart=%p qend=%p", src, txwq->qstart, txwq->qend);
+
+    copy_len = ucs_min(length, UCS_PTR_BYTE_DIFF(src, txwq->qend));
     memcpy(dst, src, copy_len);
     if (copy_len < length) {
         memcpy(UCS_PTR_BYTE_OFFSET(dst, copy_len), txwq->qstart,
