@@ -457,8 +457,6 @@ protected:
     {
         switch (info->operation) {
         case UCT_EP_OP_PUT_ZCOPY:
-            validate_rma_zcopy(info, ctx);
-            return;
         case UCT_EP_OP_GET_ZCOPY:
             validate_rma_zcopy(info, ctx);
             return;

@@ -108,15 +108,6 @@ static void uct_rc_mlx5_op_info_fill_rma_zcopy(
     uct_rc_mlx5_op_info_fill_rma_zcopy_iov(info, callback_data->iov, iovcnt);
 }
 
-static void uct_rc_mlx5_op_info_fill_put_zcopy(
-        uct_ep_op_info_t *info, const uct_ib_mlx5_txwq_t *txwq,
-        uct_rc_iface_send_op_t *op, const struct mlx5_wqe_raddr_seg *raddr,
-        size_t seg_size, uct_rc_mlx5_op_callback_data_t *callback_data)
-{
-    uct_rc_mlx5_op_info_fill_rma_zcopy(info, UCT_EP_OP_PUT_ZCOPY, txwq, op,
-                                       raddr, seg_size, callback_data);
-}
-
 static void
 uct_rc_mlx5_op_info_fill_get_bcopy(uct_ep_op_info_t *info,
                                    uct_rc_iface_send_op_t *op,
@@ -138,15 +129,6 @@ uct_rc_mlx5_op_info_fill_get_bcopy(uct_ep_op_info_t *info,
     info->rma.payload.unpack.length    = op->length;
 }
 
-static void uct_rc_mlx5_op_info_fill_get_zcopy(
-        uct_ep_op_info_t *info, const uct_ib_mlx5_txwq_t *txwq,
-        uct_rc_iface_send_op_t *op, const struct mlx5_wqe_raddr_seg *raddr,
-        size_t seg_size, uct_rc_mlx5_op_callback_data_t *callback_data)
-{
-    uct_rc_mlx5_op_info_fill_rma_zcopy(info, UCT_EP_OP_GET_ZCOPY, txwq, op,
-                                       raddr, seg_size, callback_data);
-}
-
 static ucs_status_t uct_rc_mlx5_op_info_fill_put(
         uct_ep_op_info_t *info, const uct_ib_mlx5_txwq_t *txwq,
         uct_rc_iface_send_op_t *op, const struct mlx5_wqe_ctrl_seg *ctrl,
@@ -160,8 +142,8 @@ static ucs_status_t uct_rc_mlx5_op_info_fill_put(
     raddr = uct_ib_mlx5_txwq_wrap_any_const(txwq, (ctrl + 1));
 
     if ((op == NULL) || (op->handler == uct_rc_ep_send_op_completion_handler)) {
-        uct_rc_mlx5_op_info_fill_put_zcopy(info, txwq, op, raddr,
-                                           wqe_size - header_size,
+        uct_rc_mlx5_op_info_fill_rma_zcopy(info, UCT_EP_OP_PUT_ZCOPY, txwq, op,
+                                           raddr, wqe_size - header_size,
                                            callback_data);
 
         return UCS_OK;
@@ -190,7 +172,8 @@ static ucs_status_t uct_rc_mlx5_op_info_fill_get(
 
     if ((op == NULL) ||
         (op->handler == uct_rc_ep_get_zcopy_completion_handler)) {
-        uct_rc_mlx5_op_info_fill_get_zcopy(info, txwq, op, raddr,
+        uct_rc_mlx5_op_info_fill_rma_zcopy(info, UCT_EP_OP_GET_ZCOPY, txwq, op,
+                                           raddr,
                                            wqe_size - sizeof(*ctrl) -
                                                    sizeof(*raddr),
                                            callback_data);
