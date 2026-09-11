@@ -289,15 +289,22 @@ void uct_rc_ep_flush_remote_handler(uct_rc_iface_send_op_t *op,
     ucs_mpool_put(desc);
 }
 
-/* Zcopy completion handler which allows null user completion. */
-void uct_rc_ep_put_zcopy_completion_handler(uct_rc_iface_send_op_t *op,
-                                            const void *resp)
+/* Invoke user completion if set, and put the send op back to the free list. */
+static UCS_F_ALWAYS_INLINE void
+uct_rc_ep_send_op_complete(uct_rc_iface_send_op_t *op)
 {
     if (op->user_comp != NULL) {
         uct_invoke_completion(op->user_comp, UCS_OK);
     }
 
     uct_rc_iface_put_send_op(op);
+}
+
+/* Put zcopy completion handler which allows null user completion. */
+void uct_rc_ep_put_zcopy_completion_handler(uct_rc_iface_send_op_t *op,
+                                            const void *resp)
+{
+    uct_rc_ep_send_op_complete(op);
 }
 
 void uct_rc_ep_get_zcopy_completion_handler(uct_rc_iface_send_op_t *op,
@@ -319,7 +326,7 @@ void uct_rc_ep_send_op_completion_handler(uct_rc_iface_send_op_t *op,
 void uct_rc_ep_put_sgl_zcopy_completion_handler(uct_rc_iface_send_op_t *op,
                                                 const void *resp)
 {
-    uct_rc_ep_put_zcopy_completion_handler(op, resp);
+    uct_rc_ep_send_op_complete(op);
 }
 
 void uct_rc_ep_flush_op_completion_handler(uct_rc_iface_send_op_t *op,
@@ -334,7 +341,7 @@ void uct_rc_ep_flush_op_completion_handler(uct_rc_iface_send_op_t *op,
 void uct_rc_ep_check_completion_handler(uct_rc_iface_send_op_t *op,
                                         const void *resp)
 {
-    uct_rc_ep_put_zcopy_completion_handler(op, resp);
+    uct_rc_ep_send_op_complete(op);
 }
 
 ucs_status_t uct_rc_ep_pending_add(uct_ep_h tl_ep, uct_pending_req_t *n,

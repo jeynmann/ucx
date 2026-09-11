@@ -220,6 +220,7 @@ ucs_status_t uct_rc_mlx5_base_ep_put_zcopy(uct_ep_h tl_ep, const uct_iov_t *iov,
     uct_rc_mlx5_ep_fence_put(iface, &ep->tx.wq, &rkey, &remote_addr,
                              ep->super.atomic_mr_offset, &fm_ce_se);
 
+    /* Outstanding purge can identify put zcopy by distinct handler. */
     status = uct_rc_mlx5_base_ep_zcopy_post(
             ep, MLX5_OPCODE_RDMA_WRITE, iov, iovcnt, 0ul, 0, NULL, 0,
             remote_addr, rkey, 0ul, 0, 0, NULL,
@@ -717,7 +718,7 @@ uct_rc_mlx5_base_ep_post_check(uct_ep_h tl_ep, uct_completion_t *comp)
 
     /* Always create an op so that the WQE is distinguishable from a zero-length
      * put short during outstanding WQE parsing. uct_rc_ep_check_internal()
-     * already reserved a CQ credit for this operation. */
+     * already verified a CQ credit is available. */
     op = uct_rc_iface_get_send_op(&iface->super);
     uct_rc_ep_init_send_op(op, UCT_RC_IFACE_SEND_OP_FLAG_IFACE, comp,
                            uct_rc_ep_check_completion_handler);
