@@ -909,12 +909,12 @@ static ucs_status_t uct_rc_mlx5_op_info_fill_am(
 
 static int uct_rc_mlx5_send_op_is_put_bcopy(const uct_rc_iface_send_op_t *op)
 {
-    return (void*)op->handler == (void*)ucs_mpool_put;
+    return op->handler == (uct_rc_send_handler_t)ucs_mpool_put;
 }
 
 static int uct_rc_mlx5_send_op_is_flush(const uct_rc_iface_send_op_t *op)
 {
-    return (void*)op->handler == (void*)uct_rc_ep_flush_op_completion_handler;
+    return op->handler == uct_rc_ep_flush_op_completion_handler;
 }
 
 static void uct_rc_mlx5_get_dptr_buffer(const struct mlx5_wqe_data_seg *dptr,

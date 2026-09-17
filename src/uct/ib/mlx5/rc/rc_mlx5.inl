@@ -877,7 +877,7 @@ void uct_rc_mlx5_txqp_dptr_post_iov(uct_rc_mlx5_iface_common_t *iface, int qp_ty
     struct mlx5_wqe_inl_data_seg *inl;
     uct_rc_mlx5_hdr_t            *rch;
     unsigned                     wqe_size, inl_seg_size, ctrl_av_size;
-    size_t                       num_packets;
+    uint32_t                     num_packets;
     size_t                       iov_length;
     void                         *next_seg;
     uint8_t                      opmod;
