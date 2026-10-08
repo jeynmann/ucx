@@ -1000,7 +1000,7 @@ void uct_rc_mlx5_txqp_dptr_post_iov(uct_rc_mlx5_iface_common_t *iface, int qp_ty
 #endif
 
     uct_rc_mlx5_txwq_update_psn(txwq, qp_type, message_length);
-    if (opcode_flags == MLX5_OPCODE_RDMA_WRITE) {
+    if ((opcode_flags == MLX5_OPCODE_RDMA_WRITE) || (opcode_flags == MLX5_OPCODE_RDMA_READ)) {
         /* opcode_flags is constant after inlining, so only zero-length
          * PUT_ZCOPY gets the branchless one-PSN adjustment. */
         uct_rc_mlx5_txwq_add_psn(txwq, qp_type, !message_length);
