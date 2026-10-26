@@ -104,6 +104,7 @@ static ucs_status_t ucp_ep_failed_op(uct_ep_h ep);
 static ssize_t ucp_ep_failed_bc_op(uct_ep_h ep);
 static void ucp_ep_failed_destroy(uct_ep_h ep);
 static void ucp_ep_recovery_arg_free(ucp_ep_h ep);
+static unsigned ucp_ep_tf_progress(void *arg);
 static void ucp_ep_tf_cleanup(ucp_ep_h ep);
 static void ucp_ep_tf_arg_init(ucp_ep_recovery_arg_t *arg);
 static ucp_ep_lane_tf_t *ucp_ep_tf_get(ucp_ep_h ep, ucp_lane_index_t lane);
@@ -2058,10 +2059,18 @@ static void ucp_ep_recovery_reset_probe(ucp_ep_recovery_probe_t *probe)
     probe->comp.status = UCS_OK;
 }
 
+static int
+ucp_ep_tf_progress_remove_filter(const ucs_callbackq_elem_t *elem, void *arg)
+{
+    return (elem->cb == ucp_ep_tf_progress) && (elem->arg == arg);
+}
+
 static void ucp_ep_recovery_arg_free(ucp_ep_h ep)
 {
     ucs_assert(ep->ext->recovery_arg != NULL);
     ucp_ep_refcount_assert(ep, probe, ==, 0);
+    ucs_callbackq_remove_oneshot(&ep->worker->uct->progress_q, ep,
+                                 ucp_ep_tf_progress_remove_filter, ep);
     ucp_wireup_tf_reply_discard(ep);
     ucp_ep_tf_cleanup(ep);
     ucs_free(ep->ext->recovery_arg);
@@ -2306,6 +2315,33 @@ static int ucp_ep_recovery_send_request(ucp_ep_h ep, ucp_lane_map_t lanes)
                                    recovery_lanes,
                                    ep->ext->recovery_arg->request_id, NULL);
     return 1;
+}
+
+static unsigned ucp_ep_tf_progress(void *arg)
+{
+    ucp_ep_h ep = arg;
+    ucp_ep_recovery_arg_t *recovery;
+    ucp_lane_map_t lanes;
+    unsigned count = 0;
+
+    UCS_ASYNC_BLOCK(&ep->worker->async);
+    recovery = ep->ext->recovery_arg;
+    if ((recovery == NULL) || (ep->flags & UCP_EP_FLAG_FAILED) ||
+        (recovery->state != UCP_EP_RECOVERY_STATE_IDLE)) {
+        goto out;
+    }
+
+    lanes = ucp_ep_get_failed_lanes(ep) & ~recovery->sent_lanes;
+    if (lanes != 0) {
+        recovery->state = UCP_EP_RECOVERY_STATE_WAIT_REPLY;
+        count           = ucp_ep_recovery_send_request(ep, lanes);
+        if (count == 0) {
+            recovery->state = UCP_EP_RECOVERY_STATE_IDLE;
+        }
+    }
+out:
+    UCS_ASYNC_UNBLOCK(&ep->worker->async);
+    return count;
 }
 
 /* A failed lane is recovered once its UCT EP is a real transport EP or a
@@ -3297,6 +3333,12 @@ static ucs_status_t ucp_ep_tf_detach(ucp_ep_h ep, ucp_lane_index_t lane)
     ucp_failed_tl_iface_get();
     ucp_ep_set_lane(ep, lane, &ucp_failed_tl_ep_discard_arg.failed_ep);
     ucs_diag("ep %p: detached lane %d uct_ep %p", ep, lane, tf->uct_ep);
+    /* Coalesce simultaneous lane failures without adding per-EP state. */
+    ucs_callbackq_remove_oneshot(&ep->worker->uct->progress_q, ep,
+                                 ucp_ep_tf_progress_remove_filter, ep);
+    ucs_callbackq_add_oneshot(&ep->worker->uct->progress_q, ep,
+                              ucp_ep_tf_progress, ep);
+    ucp_worker_signal_internal(ep->worker);
     return UCS_OK;
 }
 
